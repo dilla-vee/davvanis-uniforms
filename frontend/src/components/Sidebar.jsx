@@ -6,25 +6,6 @@ const navItems = [
   { id: 'analytics', label: 'Analytics', icon: '📊' },
 ];
 
-function ToggleSwitch({ checked, onChange }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      onClick={onChange}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
-        checked ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
-      }`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-          checked ? 'translate-x-6' : 'translate-x-1'
-        }`}
-      />
-    </button>
-  );
-}
-
 export default function Sidebar({ activePage, setActivePage, dark, onToggleDark }) {
   return (
     <aside className="w-56 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col shadow-sm shrink-0 h-full">
@@ -65,15 +46,19 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark 
 
       {/* Footer — theme toggle */}
       <div className="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
-        <div className="flex items-center justify-between px-1">
+        <label className="flex items-center justify-between px-1 cursor-pointer select-none">
           <div className="flex items-center gap-2">
-            <span className="text-sm">{dark ? '🌙' : '☀️'}</span>
+            <span className="text-base">{dark ? '🌙' : '☀️'}</span>
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              {dark ? 'Dark' : 'Light'}
+              {dark ? 'Dark Mode' : 'Light Mode'}
             </span>
           </div>
-          <ToggleSwitch checked={dark} onChange={onToggleDark} />
-        </div>
+          {/* Toggle switch */}
+          <div className="relative" onClick={onToggleDark}>
+            <div className={`w-11 h-6 rounded-full transition-colors duration-300 ${dark ? 'bg-indigo-600' : 'bg-gray-300'}`} />
+            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all duration-300 ${dark ? 'left-6' : 'left-1'}`} />
+          </div>
+        </label>
         <p className="text-xs text-gray-400 dark:text-gray-600 text-center mt-3">UniStore v1.0</p>
       </div>
     </aside>

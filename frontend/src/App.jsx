@@ -14,18 +14,26 @@ const PAGE_LABELS = {
   analytics: 'Analytics',
 };
 
+function getInitialDark() {
+  try {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark') return true;
+    if (saved === 'light') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  } catch {
+    return false;
+  }
+}
+
 export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved) return saved === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+  const [dark, setDark] = useState(getInitialDark);
 
   const toggleDark = () => {
     const next = !dark;
     setDark(next);
+    // Directly update the DOM class — no useEffect delay
     if (next) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -67,7 +75,12 @@ export default function App() {
         transform transition-transform duration-200 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <Sidebar activePage={activePage} setActivePage={handleNav} dark={dark} onToggleDark={toggleDark} />
+        <Sidebar
+          activePage={activePage}
+          setActivePage={handleNav}
+          dark={dark}
+          onToggleDark={toggleDark}
+        />
       </div>
 
       {/* Main content */}
@@ -83,21 +96,17 @@ export default function App() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="text-base font-semibold text-gray-900 dark:text-gray-100">{PAGE_LABELS[activePage]}</span>
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{dark ? '🌙' : '☀️'}</span>
-            <button
-              role="switch"
-              aria-checked={dark}
-              onClick={() => toggleDark()}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-                dark ? 'bg-indigo-600' : 'bg-gray-300'
-              }`}
-              aria-label="Toggle dark mode"
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${dark ? 'translate-x-6' : 'translate-x-1'}`} />
-            </button>
-            <span className="text-xl">👕</span>
+          <span className="text-base font-semibold text-gray-900 dark:text-gray-100">
+            {PAGE_LABELS[activePage]}
+          </span>
+
+          {/* Mobile dark toggle */}
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-sm">{dark ? '🌙' : '☀️'}</span>
+            <div className="relative cursor-pointer" onClick={toggleDark}>
+              <div className={`w-11 h-6 rounded-full transition-colors duration-300 ${dark ? 'bg-indigo-600' : 'bg-gray-300'}`} />
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all duration-300 ${dark ? 'left-6' : 'left-1'}`} />
+            </div>
           </div>
         </header>
 
