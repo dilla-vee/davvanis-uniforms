@@ -2,32 +2,101 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 transition-colors duration-200;
-  }
+/* ── CSS variables for theming ── */
+:root {
+  --bg-page:      #f9fafb;
+  --bg-card:      #ffffff;
+  --bg-sidebar:   #ffffff;
+  --bg-header:    #ffffff;
+  --bg-input:     #ffffff;
+  --bg-muted:     #f3f4f6;
+  --bg-hover:     #f9fafb;
+
+  --border:       #e5e7eb;
+  --border-light: #f3f4f6;
+
+  --text-primary:   #111827;
+  --text-secondary: #6b7280;
+  --text-muted:     #9ca3af;
+
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
 }
+
+html.dark {
+  --bg-page:      #030712;
+  --bg-card:      #111827;
+  --bg-sidebar:   #111827;
+  --bg-header:    #111827;
+  --bg-input:     #1f2937;
+  --bg-muted:     #1f2937;
+  --bg-hover:     #1f2937;
+
+  --border:       #374151;
+  --border-light: #1f2937;
+
+  --text-primary:   #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-muted:     #6b7280;
+
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4);
+}
+
+/* ── Apply variables to elements ── */
+body {
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Page background */
+.theme-page   { background-color: var(--bg-page); }
+.theme-card   { background-color: var(--bg-card);    border: 1px solid var(--border-light); border-radius: 0.5rem; box-shadow: var(--shadow); }
+.theme-sidebar { background-color: var(--bg-sidebar); border-right: 1px solid var(--border); }
+.theme-header  { background-color: var(--bg-header);  border-bottom: 1px solid var(--border); }
+.theme-muted   { background-color: var(--bg-muted); }
+.theme-input   { background-color: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); }
+.theme-border  { border-color: var(--border); }
+.theme-border-light { border-color: var(--border-light); }
+
+.text-theme-primary   { color: var(--text-primary); }
+.text-theme-secondary { color: var(--text-secondary); }
+.text-theme-muted     { color: var(--text-muted); }
+
+.hover-theme:hover { background-color: var(--bg-hover); }
+.divide-theme > * + * { border-top: 1px solid var(--border-light); }
 
 @layer components {
   .btn-primary {
     @apply bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm;
   }
   .btn-secondary {
-    @apply bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium text-sm
-           dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700;
+    @apply px-4 py-2 rounded-lg transition-colors font-medium text-sm;
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
   }
+  .btn-secondary:hover { background-color: var(--bg-muted); }
+
   .btn-danger {
     @apply bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors font-medium text-sm;
   }
+
   .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-100
-           dark:bg-gray-900 dark:border-gray-700;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow);
   }
+
   .input {
-    @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-           dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-500;
+    @apply w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
   }
+
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300;
+    @apply block text-sm font-medium mb-1;
+    color: var(--text-secondary);
   }
 }
