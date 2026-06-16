@@ -1,0 +1,27 @@
+# Dependencies - never commit these
+node_modules/
+
+# SQLite database files - contains live data, not source code
+backend/db.sqlite
+backend/db.sqlite-shm
+backend/db.sqlite-wal
+
+# Uploaded images
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Build output
+frontend/dist/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.log
