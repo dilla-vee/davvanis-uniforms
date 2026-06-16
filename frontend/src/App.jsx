@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import StockManager from './components/StockManager';
@@ -23,16 +23,17 @@ export default function App() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (dark) {
-      root.classList.add('dark');
+  const toggleDark = () => {
+    const next = !dark;
+    setDark(next);
+    if (next) {
+      document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
     } else {
-      root.classList.remove('dark');
+      document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
-  }, [dark]);
+  };
 
   const handleNav = (page) => {
     setActivePage(page);
@@ -66,7 +67,7 @@ export default function App() {
         transform transition-transform duration-200 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <Sidebar activePage={activePage} setActivePage={handleNav} dark={dark} onToggleDark={() => setDark(d => !d)} />
+        <Sidebar activePage={activePage} setActivePage={handleNav} dark={dark} onToggleDark={toggleDark} />
       </div>
 
       {/* Main content */}
@@ -83,13 +84,18 @@ export default function App() {
             </svg>
           </button>
           <span className="text-base font-semibold text-gray-900 dark:text-gray-100">{PAGE_LABELS[activePage]}</span>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-xs text-gray-500 dark:text-gray-400">{dark ? '🌙' : '☀️'}</span>
             <button
-              onClick={() => setDark(d => !d)}
-              className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-              aria-label="Toggle theme"
+              role="switch"
+              aria-checked={dark}
+              onClick={() => toggleDark()}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                dark ? 'bg-indigo-600' : 'bg-gray-300'
+              }`}
+              aria-label="Toggle dark mode"
             >
-              {dark ? '☀️' : '🌙'}
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${dark ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
             <span className="text-xl">👕</span>
           </div>

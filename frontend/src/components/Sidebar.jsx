@@ -6,6 +6,25 @@ const navItems = [
   { id: 'analytics', label: 'Analytics', icon: '📊' },
 ];
 
+function ToggleSwitch({ checked, onChange }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
+        checked ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
+}
+
 export default function Sidebar({ activePage, setActivePage, dark, onToggleDark }) {
   return (
     <aside className="w-56 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col shadow-sm shrink-0 h-full">
@@ -46,15 +65,16 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark 
 
       {/* Footer — theme toggle */}
       <div className="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
-        <button
-          onClick={onToggleDark}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium"
-          aria-label="Toggle dark mode"
-        >
-          <span className="text-base">{dark ? '☀️' : '🌙'}</span>
-          <span>{dark ? 'Light Mode' : 'Dark Mode'}</span>
-        </button>
-        <p className="text-xs text-gray-400 dark:text-gray-600 text-center mt-2">UniStore v1.0</p>
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">{dark ? '🌙' : '☀️'}</span>
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              {dark ? 'Dark' : 'Light'}
+            </span>
+          </div>
+          <ToggleSwitch checked={dark} onChange={onToggleDark} />
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-600 text-center mt-3">UniStore v1.0</p>
       </div>
     </aside>
   );
