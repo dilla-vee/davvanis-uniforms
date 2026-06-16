@@ -148,7 +148,9 @@ export default function Analytics() {
           <h3 className="text-base font-semibold text-gray-900">Stock Status</h3>
           <p className="text-xs text-gray-500 mt-0.5">Full inventory breakdown</p>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
@@ -169,21 +171,42 @@ export default function Analytics() {
                       <td className="py-3 px-4 text-gray-500">{item.category || '—'}</td>
                       <td className="py-3 px-4 text-gray-500">{item.size || '—'}</td>
                       <td className="py-3 px-4 font-semibold text-gray-900">{item.quantity}</td>
-                      <td className="py-3 px-4 text-gray-700">
-                        {item.price !== null ? `£${Number(item.price).toFixed(2)}` : '—'}
-                      </td>
-                      <td className="py-3 px-4 font-medium text-gray-900">
-                        £{value.toFixed(2)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <StockStatusPill quantity={item.quantity} threshold={item.low_stock_threshold} />
-                      </td>
+                      <td className="py-3 px-4 text-gray-700">{item.price !== null ? `£${Number(item.price).toFixed(2)}` : '—'}</td>
+                      <td className="py-3 px-4 font-medium text-gray-900">£{value.toFixed(2)}</td>
+                      <td className="py-3 px-4"><StockStatusPill quantity={item.quantity} threshold={item.low_stock_threshold} /></td>
                     </tr>
                   );
                 })
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden divide-y divide-gray-100">
+          {allStock.length === 0 ? (
+            <p className="text-center py-8 text-gray-400">No stock data</p>
+          ) : (
+            allStock.map((item) => {
+              const value = (item.quantity || 0) * (item.price || 0);
+              return (
+                <div key={item.id} className="p-4">
+                  <div className="flex items-start justify-between mb-1.5">
+                    <div>
+                      <p className="font-semibold text-gray-900">{item.name}</p>
+                      <p className="text-xs text-gray-500">{item.category || '—'}{item.size ? ` · ${item.size}` : ''}</p>
+                    </div>
+                    <StockStatusPill quantity={item.quantity} threshold={item.low_stock_threshold} />
+                  </div>
+                  <div className="flex gap-4 text-xs text-gray-500 mt-1">
+                    <span>Qty: <span className="font-bold text-gray-900">{item.quantity}</span></span>
+                    <span>Price: <span className="font-medium text-gray-900">{item.price !== null ? `£${Number(item.price).toFixed(2)}` : '—'}</span></span>
+                    <span>Value: <span className="font-medium text-gray-900">£{value.toFixed(2)}</span></span>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

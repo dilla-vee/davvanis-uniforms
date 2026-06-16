@@ -163,75 +163,98 @@ export default function StockManager() {
             <p className="mt-3">No stock items yet. Add your first item!</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  {['Name', 'Category', 'Size', 'Quantity', 'Price', 'Threshold', 'Actions'].map(h => (
-                    <th key={h} className="text-left py-3 px-4 text-gray-500 font-medium text-xs uppercase tracking-wide">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {stock.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
-                    <td className="py-3 px-4 text-gray-500">{item.category || '—'}</td>
-                    <td className="py-3 px-4 text-gray-500">{item.size || '—'}</td>
-                    <td className="py-3 px-4">
-                      {editingQty === item.id ? (
-                        <div className="flex items-center gap-1">
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    {['Name', 'Category', 'Size', 'Quantity', 'Price', 'Threshold', 'Actions'].map(h => (
+                      <th key={h} className="text-left py-3 px-4 text-gray-500 font-medium text-xs uppercase tracking-wide">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {stock.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
+                      <td className="py-3 px-4 text-gray-500">{item.category || '—'}</td>
+                      <td className="py-3 px-4 text-gray-500">{item.size || '—'}</td>
+                      <td className="py-3 px-4">
+                        {editingQty === item.id ? (
                           <input
                             ref={qtyInputRef}
-                            type="number"
-                            min="0"
+                            type="number" min="0"
                             value={qtyValue}
                             onChange={e => setQtyValue(e.target.value)}
                             onBlur={() => saveQty(item)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') saveQty(item);
-                              if (e.key === 'Escape') setEditingQty(null);
-                            }}
+                            onKeyDown={e => { if (e.key === 'Enter') saveQty(item); if (e.key === 'Escape') setEditingQty(null); }}
                             className="w-20 border border-indigo-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
+                        ) : (
+                          <button onClick={() => { setEditingQty(item.id); setQtyValue(String(item.quantity)); }} className={`hover:underline cursor-pointer ${qtyColor(item)}`} title="Click to edit">
+                            {item.quantity}
+                          </button>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-gray-700">{item.price !== null ? `£${Number(item.price).toFixed(2)}` : '—'}</td>
+                      <td className="py-3 px-4 text-gray-500">{item.low_stock_threshold}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => openEdit(item)} className="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit</button>
+                          <button onClick={() => setDeleteConfirm(item)} className="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
                         </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {stock.map((item) => (
+                <div key={item.id} className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <p className="font-semibold text-gray-900">{item.name}</p>
+                      <p className="text-xs text-gray-500">{item.category || '—'} {item.size ? `· ${item.size}` : ''}</p>
+                    </div>
+                    <div className="text-right">
+                      {editingQty === item.id ? (
+                        <input
+                          ref={qtyInputRef}
+                          type="number" min="0"
+                          value={qtyValue}
+                          onChange={e => setQtyValue(e.target.value)}
+                          onBlur={() => saveQty(item)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveQty(item); if (e.key === 'Escape') setEditingQty(null); }}
+                          className="w-20 border border-indigo-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
                       ) : (
-                        <button
-                          onClick={() => { setEditingQty(item.id); setQtyValue(String(item.quantity)); }}
-                          className={`hover:underline cursor-pointer ${qtyColor(item)}`}
-                          title="Click to edit quantity"
-                        >
+                        <button onClick={() => { setEditingQty(item.id); setQtyValue(String(item.quantity)); }} className={`text-lg font-bold hover:underline ${qtyColor(item)}`}>
                           {item.quantity}
                         </button>
                       )}
-                    </td>
-                    <td className="py-3 px-4 text-gray-700">
-                      {item.price !== null ? `£${Number(item.price).toFixed(2)}` : '—'}
-                    </td>
-                    <td className="py-3 px-4 text-gray-500">{item.low_stock_threshold}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openEdit(item)}
-                          className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm(item)}
-                          className="text-red-500 hover:text-red-700 text-xs font-medium"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      <p className="text-xs text-gray-400">qty</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-3 text-xs text-gray-500">
+                      <span>Price: <span className="text-gray-900 font-medium">{item.price !== null ? `£${Number(item.price).toFixed(2)}` : '—'}</span></span>
+                      <span>Min: <span className="text-gray-900 font-medium">{item.low_stock_threshold}</span></span>
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={() => openEdit(item)} className="text-indigo-600 text-xs font-medium">Edit</button>
+                      <button onClick={() => setDeleteConfirm(item)} className="text-red-500 text-xs font-medium">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

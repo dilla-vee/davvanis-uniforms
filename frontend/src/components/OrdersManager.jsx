@@ -206,36 +206,62 @@ export default function OrdersManager() {
             <p className="mt-3">No orders yet.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  {['Order #', 'Client', 'School', 'Date', 'Items', 'Total', 'Status', 'Actions'].map(h => (
-                    <th key={h} className="text-left py-3 px-4 text-gray-500 font-medium text-xs uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openDetail(order)}>
-                    <td className="py-3 px-4 font-medium text-indigo-600">#{order.id}</td>
-                    <td className="py-3 px-4 font-medium text-gray-900">{order.client_name || '—'}</td>
-                    <td className="py-3 px-4 text-gray-500 text-xs">{order.client_school || '—'}</td>
-                    <td className="py-3 px-4 text-gray-500">{new Date(order.order_date).toLocaleDateString()}</td>
-                    <td className="py-3 px-4 text-gray-700">{order.item_count}</td>
-                    <td className="py-3 px-4 font-medium">£{(order.total_price || 0).toFixed(2)}</td>
-                    <td className="py-3 px-4"><StatusBadge status={order.status} /></td>
-                    <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
-                      <div className="flex gap-2">
-                        <button onClick={() => openDetail(order)} className="text-indigo-600 hover:text-indigo-800 text-xs font-medium">View</button>
-                        <button onClick={() => handleDelete(order.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
-                      </div>
-                    </td>
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    {['Order #', 'Client', 'School', 'Date', 'Items', 'Total', 'Status', 'Actions'].map(h => (
+                      <th key={h} className="text-left py-3 px-4 text-gray-500 font-medium text-xs uppercase tracking-wide">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {orders.map((order) => (
+                    <tr key={order.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openDetail(order)}>
+                      <td className="py-3 px-4 font-medium text-indigo-600">#{order.id}</td>
+                      <td className="py-3 px-4 font-medium text-gray-900">{order.client_name || '—'}</td>
+                      <td className="py-3 px-4 text-gray-500 text-xs">{order.client_school || '—'}</td>
+                      <td className="py-3 px-4 text-gray-500">{new Date(order.order_date).toLocaleDateString()}</td>
+                      <td className="py-3 px-4 text-gray-700">{order.item_count}</td>
+                      <td className="py-3 px-4 font-medium">£{(order.total_price || 0).toFixed(2)}</td>
+                      <td className="py-3 px-4"><StatusBadge status={order.status} /></td>
+                      <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex gap-2">
+                          <button onClick={() => openDetail(order)} className="text-indigo-600 hover:text-indigo-800 text-xs font-medium">View</button>
+                          <button onClick={() => handleDelete(order.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {orders.map((order) => (
+                <div key={order.id} className="p-4 cursor-pointer hover:bg-gray-50" onClick={() => openDetail(order)}>
+                  <div className="flex items-start justify-between mb-1.5">
+                    <div>
+                      <span className="font-semibold text-indigo-600 text-sm">Order #{order.id}</span>
+                      <p className="font-medium text-gray-900">{order.client_name || '—'}</p>
+                      <p className="text-xs text-gray-500">{order.client_school || '—'}</p>
+                    </div>
+                    <StatusBadge status={order.status} />
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex gap-3 text-xs text-gray-500">
+                      <span>{new Date(order.order_date).toLocaleDateString()}</span>
+                      <span>{order.item_count} item{order.item_count !== 1 ? 's' : ''}</span>
+                    </div>
+                    <span className="font-bold text-gray-900">£{(order.total_price || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

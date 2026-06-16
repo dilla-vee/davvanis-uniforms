@@ -136,17 +136,20 @@ export default function Dashboard() {
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-2 pr-4 text-gray-500 font-medium">Item</th>
-                  <th className="text-left py-2 pr-4 text-gray-500 font-medium">Category</th>
-                  <th className="text-left py-2 pr-4 text-gray-500 font-medium">Size</th>
+                  <th className="text-left py-2 pr-4 text-gray-500 font-medium hidden sm:table-cell">Category</th>
+                  <th className="text-left py-2 pr-4 text-gray-500 font-medium hidden sm:table-cell">Size</th>
                   <th className="text-left py-2 text-gray-500 font-medium">Quantity</th>
                 </tr>
               </thead>
               <tbody>
                 {lowStock.map((item) => (
                   <tr key={item.id} className="border-b border-gray-50 last:border-0">
-                    <td className="py-2.5 pr-4 font-medium text-gray-900">{item.name}</td>
-                    <td className="py-2.5 pr-4 text-gray-500">{item.category || '—'}</td>
-                    <td className="py-2.5 pr-4 text-gray-500">{item.size || '—'}</td>
+                    <td className="py-2.5 pr-4 font-medium text-gray-900">
+                      {item.name}
+                      <span className="block text-xs text-gray-400 sm:hidden">{item.category} · {item.size}</span>
+                    </td>
+                    <td className="py-2.5 pr-4 text-gray-500 hidden sm:table-cell">{item.category || '—'}</td>
+                    <td className="py-2.5 pr-4 text-gray-500 hidden sm:table-cell">{item.size || '—'}</td>
                     <td className="py-2.5">
                       <span className="font-bold text-red-600">{item.quantity}</span>
                       <span className="text-gray-400 text-xs ml-1">/ {item.low_stock_threshold} min</span>
@@ -180,8 +183,8 @@ export default function Dashboard() {
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-2 pr-4 text-gray-500 font-medium">Order #</th>
                   <th className="text-left py-2 pr-4 text-gray-500 font-medium">Client</th>
-                  <th className="text-left py-2 pr-4 text-gray-500 font-medium">Date</th>
-                  <th className="text-left py-2 pr-4 text-gray-500 font-medium">Total</th>
+                  <th className="text-left py-2 pr-4 text-gray-500 font-medium hidden sm:table-cell">Date</th>
+                  <th className="text-left py-2 pr-4 text-gray-500 font-medium hidden sm:table-cell">Total</th>
                   <th className="text-left py-2 text-gray-500 font-medium">Status</th>
                 </tr>
               </thead>
@@ -189,14 +192,13 @@ export default function Dashboard() {
                 {orders.slice(0, 5).map((order) => (
                   <tr key={order.id} className="border-b border-gray-50 last:border-0">
                     <td className="py-2.5 pr-4 font-medium text-indigo-600">#{order.id}</td>
-                    <td className="py-2.5 pr-4 text-gray-900">{order.client_name || '—'}</td>
-                    <td className="py-2.5 pr-4 text-gray-500">
-                      {new Date(order.order_date).toLocaleDateString()}
+                    <td className="py-2.5 pr-4 text-gray-900">
+                      {order.client_name || '—'}
+                      <span className="block text-xs text-gray-400 sm:hidden">£{(order.total_price || 0).toFixed(2)} · {new Date(order.order_date).toLocaleDateString()}</span>
                     </td>
-                    <td className="py-2.5 pr-4 font-medium">£{(order.total_price || 0).toFixed(2)}</td>
-                    <td className="py-2.5">
-                      <StatusBadge status={order.status} />
-                    </td>
+                    <td className="py-2.5 pr-4 text-gray-500 hidden sm:table-cell">{new Date(order.order_date).toLocaleDateString()}</td>
+                    <td className="py-2.5 pr-4 font-medium hidden sm:table-cell">£{(order.total_price || 0).toFixed(2)}</td>
+                    <td className="py-2.5"><StatusBadge status={order.status} /></td>
                   </tr>
                 ))}
               </tbody>
