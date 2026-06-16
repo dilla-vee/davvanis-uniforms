@@ -10,14 +10,12 @@ function Modal({ title, onClose, children }) {
   }, [onClose]);
 
   return (
-    <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md border border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">✕</button>
         </div>
         <div className="p-5">{children}</div>
       </div>
@@ -36,9 +34,7 @@ export default function StockManager() {
   const [qtyValue, setQtyValue] = useState('');
   const qtyInputRef = useRef(null);
 
-  const [form, setForm] = useState({
-    name: '', category: '', size: '', quantity: '', price: '', low_stock_threshold: '10',
-  });
+  const [form, setForm] = useState({ name: '', category: '', size: '', quantity: '', price: '', low_stock_threshold: '10' });
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -48,38 +44,27 @@ export default function StockManager() {
       const res = await fetch('/api/stock');
       if (!res.ok) throw new Error('Failed to fetch stock');
       setStock(await res.json());
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(err.message); } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchStock(); }, []);
-
-  useEffect(() => {
-    if (editingQty && qtyInputRef.current) qtyInputRef.current.focus();
-  }, [editingQty]);
+  useEffect(() => { if (editingQty && qtyInputRef.current) qtyInputRef.current.focus(); }, [editingQty]);
 
   const openAdd = () => {
     setEditItem(null);
     setForm({ name: '', category: '', size: '', quantity: '', price: '', low_stock_threshold: '10' });
-    setFormError('');
-    setShowModal(true);
+    setFormError(''); setShowModal(true);
   };
 
   const openEdit = (item) => {
     setEditItem(item);
     setForm({
-      name: item.name || '',
-      category: item.category || '',
-      size: item.size || '',
+      name: item.name || '', category: item.category || '', size: item.size || '',
       quantity: item.quantity !== null ? String(item.quantity) : '',
       price: item.price !== null ? String(item.price) : '',
       low_stock_threshold: item.low_stock_threshold !== null ? String(item.low_stock_threshold) : '10',
     });
-    setFormError('');
-    setShowModal(true);
+    setFormError(''); setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
@@ -88,9 +73,8 @@ export default function StockManager() {
     setSaving(true);
     try {
       const url = editItem ? `/api/stock/${editItem.id}` : '/api/stock';
-      const method = editItem ? 'PUT' : 'POST';
       const res = await fetch(url, {
-        method,
+        method: editItem ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
@@ -100,24 +84,16 @@ export default function StockManager() {
         }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed to save'); }
-      await fetchStock();
-      setShowModal(false);
-    } catch (err) {
-      setFormError(err.message);
-    } finally {
-      setSaving(false);
-    }
+      await fetchStock(); setShowModal(false);
+    } catch (err) { setFormError(err.message); } finally { setSaving(false); }
   };
 
   const handleDelete = async (id) => {
     try {
       const res = await fetch(`/api/stock/${id}`, { method: 'DELETE' });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-      await fetchStock();
-      setDeleteConfirm(null);
-    } catch (err) {
-      alert(err.message);
-    }
+      await fetchStock(); setDeleteConfirm(null);
+    } catch (err) { alert(err.message); }
   };
 
   const saveQty = async (item) => {
@@ -125,8 +101,7 @@ export default function StockManager() {
     if (isNaN(qty) || qty < 0) { setEditingQty(null); return; }
     try {
       await fetch(`/api/stock/${item.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity: qty }),
       });
       await fetchStock();
@@ -135,30 +110,38 @@ export default function StockManager() {
   };
 
   const qtyColor = (item) => {
-    if (item.quantity <= item.low_stock_threshold) return 'text-red-600 font-bold';
-    if (item.quantity <= item.low_stock_threshold * 2) return 'text-amber-600 font-semibold';
-    return 'text-green-700 font-semibold';
+    if (item.quantity <= item.low_stock_threshold) return 'text-red-600 dark:text-red-400 font-bold';
+    if (item.quantity <= item.low_stock_threshold * 2) return 'text-amber-600 dark:text-amber-400 font-semibold';
+    return 'text-green-700 dark:text-green-400 font-semibold';
   };
 
-  if (error) return <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">{error}</div>;
+  if (error) return <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-700 dark:text-red-400">{error}</div>;
+
+  const QtyInput = ({ item }) => (
+    <input
+      ref={qtyInputRef} type="number" min="0" value={qtyValue}
+      onChange={e => setQtyValue(e.target.value)}
+      onBlur={() => saveQty(item)}
+      onKeyDown={e => { if (e.key === 'Enter') saveQty(item); if (e.key === 'Escape') setEditingQty(null); }}
+      className="w-20 border border-indigo-300 dark:border-indigo-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+    />
+  );
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Stock Manager</h2>
-          <p className="text-gray-500 text-sm mt-1">{stock.length} items in inventory</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Stock Manager</h2>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{stock.length} items in inventory</p>
         </div>
         <button onClick={openAdd} className="btn-primary">+ Add Stock</button>
       </div>
 
       <div className="card overflow-hidden">
         {loading ? (
-          <div className="p-6 space-y-3">
-            {[1,2,3,4,5].map(i => <div key={i} className="h-10 bg-gray-100 animate-pulse rounded" />)}
-          </div>
+          <div className="p-6 space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="h-10 bg-gray-100 dark:bg-gray-800 animate-pulse rounded" />)}</div>
         ) : stock.length === 0 ? (
-          <div className="text-center py-16 text-gray-500">
+          <div className="text-center py-16 text-gray-500 dark:text-gray-400">
             <span className="text-5xl">📦</span>
             <p className="mt-3">No stock items yet. Add your first item!</p>
           </div>
@@ -167,44 +150,30 @@ export default function StockManager() {
             {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-100">
+                <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                   <tr>
                     {['Name', 'Category', 'Size', 'Quantity', 'Price', 'Threshold', 'Actions'].map(h => (
-                      <th key={h} className="text-left py-3 px-4 text-gray-500 font-medium text-xs uppercase tracking-wide">
-                        {h}
-                      </th>
+                      <th key={h} className="text-left py-3 px-4 text-gray-500 dark:text-gray-400 font-medium text-xs uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                   {stock.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
-                      <td className="py-3 px-4 text-gray-500">{item.category || '—'}</td>
-                      <td className="py-3 px-4 text-gray-500">{item.size || '—'}</td>
+                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                      <td className="py-3 px-4 font-medium text-gray-900 dark:text-gray-100">{item.name}</td>
+                      <td className="py-3 px-4 text-gray-500 dark:text-gray-400">{item.category || '—'}</td>
+                      <td className="py-3 px-4 text-gray-500 dark:text-gray-400">{item.size || '—'}</td>
                       <td className="py-3 px-4">
-                        {editingQty === item.id ? (
-                          <input
-                            ref={qtyInputRef}
-                            type="number" min="0"
-                            value={qtyValue}
-                            onChange={e => setQtyValue(e.target.value)}
-                            onBlur={() => saveQty(item)}
-                            onKeyDown={e => { if (e.key === 'Enter') saveQty(item); if (e.key === 'Escape') setEditingQty(null); }}
-                            className="w-20 border border-indigo-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
-                        ) : (
-                          <button onClick={() => { setEditingQty(item.id); setQtyValue(String(item.quantity)); }} className={`hover:underline cursor-pointer ${qtyColor(item)}`} title="Click to edit">
-                            {item.quantity}
-                          </button>
+                        {editingQty === item.id ? <QtyInput item={item} /> : (
+                          <button onClick={() => { setEditingQty(item.id); setQtyValue(String(item.quantity)); }} className={`hover:underline cursor-pointer ${qtyColor(item)}`} title="Click to edit">{item.quantity}</button>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-gray-700">{item.price !== null ? `£${Number(item.price).toFixed(2)}` : '—'}</td>
-                      <td className="py-3 px-4 text-gray-500">{item.low_stock_threshold}</td>
+                      <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{item.price !== null ? `£${Number(item.price).toFixed(2)}` : '—'}</td>
+                      <td className="py-3 px-4 text-gray-500 dark:text-gray-400">{item.low_stock_threshold}</td>
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => openEdit(item)} className="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit</button>
-                          <button onClick={() => setDeleteConfirm(item)} className="text-red-500 hover:text-red-700 text-xs font-medium">Delete</button>
+                        <div className="flex gap-2">
+                          <button onClick={() => openEdit(item)} className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-xs font-medium">Edit</button>
+                          <button onClick={() => setDeleteConfirm(item)} className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xs font-medium">Delete</button>
                         </div>
                       </td>
                     </tr>
@@ -214,41 +183,29 @@ export default function StockManager() {
             </div>
 
             {/* Mobile cards */}
-            <div className="md:hidden divide-y divide-gray-100">
+            <div className="md:hidden divide-y divide-gray-100 dark:divide-gray-700">
               {stock.map((item) => (
                 <div key={item.id} className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <p className="font-semibold text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-500">{item.category || '—'} {item.size ? `· ${item.size}` : ''}</p>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">{item.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.category || '—'}{item.size ? ` · ${item.size}` : ''}</p>
                     </div>
                     <div className="text-right">
-                      {editingQty === item.id ? (
-                        <input
-                          ref={qtyInputRef}
-                          type="number" min="0"
-                          value={qtyValue}
-                          onChange={e => setQtyValue(e.target.value)}
-                          onBlur={() => saveQty(item)}
-                          onKeyDown={e => { if (e.key === 'Enter') saveQty(item); if (e.key === 'Escape') setEditingQty(null); }}
-                          className="w-20 border border-indigo-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      ) : (
-                        <button onClick={() => { setEditingQty(item.id); setQtyValue(String(item.quantity)); }} className={`text-lg font-bold hover:underline ${qtyColor(item)}`}>
-                          {item.quantity}
-                        </button>
+                      {editingQty === item.id ? <QtyInput item={item} /> : (
+                        <button onClick={() => { setEditingQty(item.id); setQtyValue(String(item.quantity)); }} className={`text-lg font-bold hover:underline ${qtyColor(item)}`}>{item.quantity}</button>
                       )}
-                      <p className="text-xs text-gray-400">qty</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">qty</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="flex gap-3 text-xs text-gray-500">
-                      <span>Price: <span className="text-gray-900 font-medium">{item.price !== null ? `£${Number(item.price).toFixed(2)}` : '—'}</span></span>
-                      <span>Min: <span className="text-gray-900 font-medium">{item.low_stock_threshold}</span></span>
+                    <div className="flex gap-3 text-xs text-gray-500 dark:text-gray-400">
+                      <span>Price: <span className="text-gray-900 dark:text-gray-200 font-medium">{item.price !== null ? `£${Number(item.price).toFixed(2)}` : '—'}</span></span>
+                      <span>Min: <span className="text-gray-900 dark:text-gray-200 font-medium">{item.low_stock_threshold}</span></span>
                     </div>
                     <div className="flex gap-3">
-                      <button onClick={() => openEdit(item)} className="text-indigo-600 text-xs font-medium">Edit</button>
-                      <button onClick={() => setDeleteConfirm(item)} className="text-red-500 text-xs font-medium">Delete</button>
+                      <button onClick={() => openEdit(item)} className="text-indigo-600 dark:text-indigo-400 text-xs font-medium">Edit</button>
+                      <button onClick={() => setDeleteConfirm(item)} className="text-red-500 dark:text-red-400 text-xs font-medium">Delete</button>
                     </div>
                   </div>
                 </div>
@@ -262,7 +219,7 @@ export default function StockManager() {
       {showModal && (
         <Modal title={editItem ? 'Edit Stock Item' : 'Add Stock Item'} onClose={() => setShowModal(false)}>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {formError && <p className="text-red-500 text-sm bg-red-50 p-2 rounded">{formError}</p>}
+            {formError && <p className="text-red-500 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-2 rounded">{formError}</p>}
             <div>
               <label className="label">Name <span className="text-red-500">*</span></label>
               <input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Boys Shirt" />
@@ -295,9 +252,7 @@ export default function StockManager() {
               <input type="number" min="0" className="input" value={form.low_stock_threshold} onChange={e => setForm(f => ({ ...f, low_stock_threshold: e.target.value }))} placeholder="10" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button type="submit" disabled={saving} className="btn-primary flex-1">
-                {saving ? 'Saving...' : editItem ? 'Update Item' : 'Add Item'}
-              </button>
+              <button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? 'Saving...' : editItem ? 'Update Item' : 'Add Item'}</button>
               <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
             </div>
           </form>
@@ -307,9 +262,8 @@ export default function StockManager() {
       {/* Delete Confirm Modal */}
       {deleteConfirm && (
         <Modal title="Delete Stock Item" onClose={() => setDeleteConfirm(null)}>
-          <p className="text-gray-600 mb-5">
-            Are you sure you want to delete <strong>{deleteConfirm.name}</strong>
-            {deleteConfirm.size ? ` (${deleteConfirm.size})` : ''}? This cannot be undone.
+          <p className="text-gray-600 dark:text-gray-300 mb-5">
+            Are you sure you want to delete <strong>{deleteConfirm.name}</strong>{deleteConfirm.size ? ` (${deleteConfirm.size})` : ''}? This cannot be undone.
           </p>
           <div className="flex gap-3">
             <button onClick={() => handleDelete(deleteConfirm.id)} className="btn-danger flex-1">Delete</button>
