@@ -6,7 +6,13 @@ const db = require('../database');
 router.get('/', async (req, res) => {
   try {
     const rows = await db.query_rows('SELECT * FROM stock ORDER BY category, name, size');
-    res.json(rows);
+    const parsed = rows.map(r => ({
+      ...r,
+      quantity:            parseInt(r.quantity) || 0,
+      price:               r.price != null ? parseFloat(r.price) : null,
+      low_stock_threshold: parseInt(r.low_stock_threshold) || 10,
+    }));
+    res.json(parsed);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -16,7 +22,13 @@ router.get('/low', async (req, res) => {
     const rows = await db.query_rows(
       'SELECT * FROM stock WHERE quantity <= low_stock_threshold ORDER BY quantity ASC'
     );
-    res.json(rows);
+    const parsed = rows.map(r => ({
+      ...r,
+      quantity:            parseInt(r.quantity) || 0,
+      price:               r.price != null ? parseFloat(r.price) : null,
+      low_stock_threshold: parseInt(r.low_stock_threshold) || 10,
+    }));
+    res.json(parsed);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

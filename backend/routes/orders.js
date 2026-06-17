@@ -14,7 +14,13 @@ router.get('/', async (req, res) => {
        LEFT JOIN clients c ON o.client_id = c.id
        ORDER BY o.order_date DESC`
     );
-    res.json(rows);
+    // PostgreSQL returns numeric columns as strings — cast them
+    const parsed = rows.map(r => ({
+      ...r,
+      total_price: parseFloat(r.total_price) || 0,
+      item_count:  parseInt(r.item_count) || 0,
+    }));
+    res.json(parsed);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -49,8 +55,8 @@ router.get('/analytics/stock-summary', async (req, res) => {
       low_stock_count:   parseInt(totals.low_stock_count),
       category_breakdown: categories.map(r => ({
         name:           r.name,
-        total_quantity: parseInt(r.total_quantity),
-        total_value:    parseFloat(r.total_value),
+        total_quantity: parseInt(r.total_quantity) || 0,
+        total_value:    parseFloat(r.total_value) || 0,
       })),
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -75,7 +81,16 @@ router.get('/:id', async (req, res) => {
        WHERE oi.order_id = $1`,
       [req.params.id]
     );
-    res.json({ ...order, items });
+    const parsedOrder = {
+      ...order,
+      total_price: parseFloat(order.total_price) || 0,
+      items: items.map(i => ({
+        ...i,
+        unit_price: parseFloat(i.unit_price) || 0,
+        quantity:   parseInt(i.quantity) || 0,
+      })),
+    };
+    res.json(parsedOrder);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

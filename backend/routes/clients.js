@@ -44,7 +44,12 @@ router.get('/:id', async (req, res) => {
        ORDER BY o.order_date DESC`,
       [req.params.id]
     );
-    res.json({ ...client, orders });
+    const parsedOrders = orders.map(o => ({
+      ...o,
+      total_price: parseFloat(o.total_price) || 0,
+      item_count:  parseInt(o.item_count) || 0,
+    }));
+    res.json({ ...client, orders: parsedOrders });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
