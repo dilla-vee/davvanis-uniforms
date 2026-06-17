@@ -1,59 +1,48 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 
-if (!process.env.DATABASE_URL) {
-  console.error('');
-  console.error('=====================================================');
-  console.error('ERROR: DATABASE_URL environment variable is not set.');
-  console.error('Add it in Railway → your service → Variables tab.');
-  console.error('Get the value from Supabase → Settings → Database');
-  console.error('=====================================================');
-  console.error('');
-  // Don't exit immediately — let the HTTP server start so Railway
-  // health checks pass, but all DB routes will return a clear error.
-}
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+});
 
-const pool = process.env.DATABASE_URL
-  ? new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-    })
-  : null;
+pool.on('error', (err) => {
+  console.error('Unexpected DB pool error:', err.message);
+});
 
-// Helper: run a query and return rows
+// Helper: run a query and return all rows
 pool.query_rows = async (sql, params = []) => {
-  if (!pool) throw new Error('DATABASE_URL not configured. Add it in Railway Variables.');
   const result = await pool.query(sql, params);
   return result.rows;
 };
 
-// Helper: run a query and return first row
+// Helper: run a query and return first row only
 pool.query_one = async (sql, params = []) => {
-  if (!pool) throw new Error('DATABASE_URL not configured. Add it in Railway Variables.');
   const result = await pool.query(sql, params);
   return result.rows[0] || null;
 };
 
-// Create tables and seed on startup
+// Create tables and seed initial data
 async function initDB() {
-  if (!pool) {
-    console.warn('Skipping DB init — DATABASE_URL not set.');
+  if (!process.env.DATABASE_URL) {
+    console.warn('WARNING: DATABASE_URL not set — skipping DB init. Add it in Railway Variables.');
     return;
   }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS clients (
-        id         SERIAL PRIMARY KEY,
-        name       TEXT NOT NULL,
-        school     TEXT NOT NULL,
-        contact    TEXT,
-        email      TEXT,
+        id          SERIAL PRIMARY KEY,
+        name        TEXT NOT NULL,
+        school      TEXT NOT NULL,
+        contact     TEXT,
+        email       TEXT,
         description TEXT,
-        image_url  TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        image_url   TEXT,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
       );
 
       CREATE TABLE IF NOT EXISTS stock (
@@ -86,7 +75,6 @@ async function initDB() {
       );
     `);
 
-    // Seed only if empty
     const { rows } = await client.query('SELECT COUNT(*) as count FROM clients');
     if (parseInt(rows[0].count) === 0) {
       console.log('Seeding database with sample data...');
@@ -99,75 +87,52 @@ async function initDB() {
       const c2 = await client.query(
         `INSERT INTO clients (name, school, contact, email, description) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
         ["St. Mary's Academy", "St. Mary's Academy", '0722 456789', 'bursar@stmarys.ac.ke',
-         'Secondary school with blazers, ties, and sports uniforms. Special embroidery required on all items.']
-      );
-      const c3 = await client.query(
-        `INSERT INTO clients (name, school, contact, email, description) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-        ['Riverside Community School', 'Riverside Community School', '0733 567890', 'office@riverside.sc.ke',
-         'Community school with mixed age groups. Requires sizes from age 3 through to adult XL.']
+         'Secondary school with blazers, ties, and sports uniforms.']
       );
 
       const cid1 = c1.rows[0].id;
       const cid2 = c2.rows[0].id;
 
-      // Stock
       const stockItems = [
-        ['Boys Shirt',    'Tops',        'Age 7-8',  45, 350,  10],
-        ['Boys Shirt',    'Tops',        'Age 9-10', 32, 350,  10],
-        ['Boys Shirt',    'Tops',        'Age 11-12', 8, 380,  10],
-        ['Girls Blouse',  'Tops',        'Age 7-8',  38, 350,  10],
-        ['Girls Blouse',  'Tops',        'Age 9-10', 15, 350,  10],
-        ['Girls Skirt',   'Bottoms',     'Age 7-8',  22, 450,   8],
-        ['Girls Skirt',   'Bottoms',     'Age 9-10',  7, 450,   8],
-        ['Boys Trousers', 'Bottoms',     'Age 7-8',  30, 500,   8],
-        ['Boys Trousers', 'Bottoms',     'Age 9-10',  5, 500,   8],
-        ['School Jumper', 'Tops',        'Age 7-8',  50, 600,  12],
-        ['School Jumper', 'Tops',        'Age 9-10', 42, 600,  12],
-        ['PE T-Shirt',    'Sports',      'Small',    25, 300,  10],
-        ['PE T-Shirt',    'Sports',      'Medium',    3, 300,  10],
-        ['PE Shorts',     'Sports',      'Small',    20, 380,  10],
-        ['PE Shorts',     'Sports',      'Medium',   18, 380,  10],
-        ['School Blazer', 'Outerwear',   'Age 11-12',12,1500,   5],
-        ['School Blazer', 'Outerwear',   'Age 13-14', 4,1600,   5],
-        ['School Tie',    'Accessories', 'One Size', 60, 200,  15],
-        ['Book Bag',      'Accessories', 'One Size',  2, 280,  10],
+        ['Boys Shirt',    'Tops',        'Age 7-8',   45, 350,  10],
+        ['Boys Shirt',    'Tops',        'Age 9-10',  32, 350,  10],
+        ['Girls Blouse',  'Tops',        'Age 7-8',   38, 350,  10],
+        ['Girls Skirt',   'Bottoms',     'Age 7-8',   22, 450,   8],
+        ['Boys Trousers', 'Bottoms',     'Age 7-8',   30, 500,   8],
+        ['School Jumper', 'Tops',        'Age 7-8',   50, 600,  12],
+        ['PE T-Shirt',    'Sports',      'Small',     25, 300,  10],
+        ['PE Shorts',     'Sports',      'Small',     20, 380,  10],
+        ['School Blazer', 'Outerwear',   'Age 11-12', 12, 1500,  5],
+        ['School Tie',    'Accessories', 'One Size',  60, 200,  15],
       ];
       const sIds = [];
-      for (const [name,cat,size,qty,price,threshold] of stockItems) {
+      for (const [name, cat, size, qty, price, threshold] of stockItems) {
         const r = await client.query(
           `INSERT INTO stock (name,category,size,quantity,price,low_stock_threshold) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-          [name,cat,size,qty,price,threshold]
+          [name, cat, size, qty, price, threshold]
         );
         sIds.push(r.rows[0].id);
       }
 
-      // Orders
       const o1 = await client.query(
         `INSERT INTO orders (client_id,total_price,status,notes) VALUES ($1,$2,$3,$4) RETURNING id`,
-        [cid1, 9800, 'completed', 'Autumn term order. Delivered on time.']
+        [cid1, 9800, 'completed', 'Autumn term order.']
       );
       const o2 = await client.query(
         `INSERT INTO orders (client_id,total_price,status,notes) VALUES ($1,$2,$3,$4) RETURNING id`,
-        [cid2, 17600, 'processing', 'Needs embroidery on blazers before dispatch.']
-      );
-      const o3 = await client.query(
-        `INSERT INTO orders (client_id,total_price,status,notes) VALUES ($1,$2,$3,$4) RETURNING id`,
-        [cid1, 7150, 'pending', 'Spring top-up order.']
+        [cid2, 17600, 'processing', 'Needs embroidery on blazers.']
       );
 
-      const oid1 = o1.rows[0].id, oid2 = o2.rows[0].id, oid3 = o3.rows[0].id;
-      const items = [
-        [oid1,sIds[0],10,350,'Age 7-8'], [oid1,sIds[3],10,350,'Age 7-8'],
-        [oid1,sIds[5], 5,450,'Age 7-8'], [oid1,sIds[7],10,500,'Age 7-8'],
-        [oid1,sIds[9],10,600,'Age 7-8'],
-        [oid2,sIds[15],8,1500,'Age 11-12'], [oid2,sIds[17],20,200,'One Size'], [oid2,sIds[11],10,300,'Small'],
-        [oid3,sIds[1],5,350,'Age 9-10'], [oid3,sIds[4],5,350,'Age 9-10'],
-        [oid3,sIds[6],5,450,'Age 9-10'], [oid3,sIds[10],5,600,'Age 9-10'],
+      const itemsToInsert = [
+        [o1.rows[0].id, sIds[0], 10, 350, 'Age 7-8'],
+        [o1.rows[0].id, sIds[2], 10, 350, 'Age 7-8'],
+        [o2.rows[0].id, sIds[8],  8, 1500, 'Age 11-12'],
+        [o2.rows[0].id, sIds[9], 20, 200, 'One Size'],
       ];
-      for (const [oid,sid,qty,price,size] of items) {
+      for (const [oid, sid, qty, price, size] of itemsToInsert) {
         await client.query(
           `INSERT INTO order_items (order_id,stock_id,quantity,unit_price,size) VALUES ($1,$2,$3,$4,$5)`,
-          [oid,sid,qty,price,size]
+          [oid, sid, qty, price, size]
         );
       }
       console.log('Seed complete.');
@@ -178,15 +143,11 @@ async function initDB() {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('DB init error:', err.message);
-    throw err;
   } finally {
     client.release();
   }
 }
 
-initDB().catch(err => {
-  console.error('Fatal DB init failure:', err.message);
-  process.exit(1);
-});
+initDB();
 
 module.exports = pool;

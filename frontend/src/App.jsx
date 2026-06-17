@@ -1,10 +1,32 @@
-import { useState } from 'react';
+import { useState, Component } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import StockManager from './components/StockManager';
 import OrdersManager from './components/OrdersManager';
 import ClientsManager from './components/ClientsManager';
 import Analytics from './components/Analytics';
+
+// Error boundary — catches JS crashes and shows message instead of black screen
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: '2rem', fontFamily: 'sans-serif', background: '#fff', minHeight: '100vh' }}>
+          <h2 style={{ color: '#ef4444' }}>Something went wrong</h2>
+          <pre style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '8px', fontSize: '13px', overflowX: 'auto' }}>
+            {this.state.error.message}
+          </pre>
+          <button onClick={() => window.location.reload()} style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+            Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const PAGE_LABELS = {
   dashboard: 'Dashboard',
@@ -56,6 +78,7 @@ export default function App() {
   };
 
   return (
+    <ErrorBoundary>
     <div className="flex h-screen overflow-hidden theme-page">
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -123,5 +146,6 @@ export default function App() {
         </main>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
