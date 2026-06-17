@@ -10,12 +10,39 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark 
   return (
     <aside className="theme-sidebar flex flex-col shrink-0 h-full" style={{ width: '224px' }}>
       {/* Logo */}
-      <div className="px-5 py-5 theme-border-light" style={{ borderBottom: '1px solid var(--border)' }}>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">👕</span>
-          <div>
-            <h1 className="text-lg font-bold text-indigo-600 leading-tight">UniStore</h1>
-            <p className="text-xs text-theme-muted">Uniform Manager</p>
+      <div className="px-4 py-4 theme-border-light" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="flex items-center gap-3">
+          {/* Icon badge */}
+          <div style={{
+            width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0,
+            background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(79,70,229,0.35)',
+            fontSize: '18px',
+          }}>👔</div>
+          <div style={{ lineHeight: 1.1 }}>
+            <div style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontWeight: 700,
+              fontSize: '15px',
+              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              letterSpacing: '0.01em',
+            }}>
+              Davvanis
+            </div>
+            <div style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 600,
+              fontSize: '11px',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: 'var(--text-secondary)',
+            }}>
+              Uniforms
+            </div>
           </div>
         </div>
       </div>
@@ -85,7 +112,7 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark 
             }} />
           </div>
         </div>
-        <p className="text-xs text-theme-muted text-center mt-3">UniStore v1.0</p>
+        <p className="text-xs text-theme-muted text-center mt-3">Davvanis Uniforms © 2025</p>
       </div>
     </aside>
   );

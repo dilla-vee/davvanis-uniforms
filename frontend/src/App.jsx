@@ -73,7 +73,29 @@ export default function App() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="text-base font-semibold text-theme-primary">{PAGE_LABELS[activePage]}</span>
+          {/* Mobile brand */}
+          <div className="flex items-center gap-2">
+            <div style={{
+              width:'28px', height:'28px', borderRadius:'7px', flexShrink:0,
+              background:'linear-gradient(135deg,#4f46e5,#7c3aed)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:'13px',
+            }}>👔</div>
+            <div style={{lineHeight:1.1}}>
+              <div style={{
+                fontFamily:"'Playfair Display',Georgia,serif",
+                fontWeight:700, fontSize:'13px',
+                background:'linear-gradient(135deg,#4f46e5,#7c3aed)',
+                WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
+                backgroundClip:'text',
+              }}>Davvanis</div>
+              <div style={{
+                fontFamily:"'Inter',sans-serif", fontWeight:600,
+                fontSize:'9px', letterSpacing:'0.1em',
+                textTransform:'uppercase', color:'var(--text-muted)',
+              }}>Uniforms</div>
+            </div>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-sm">{dark ? '🌙' : '☀️'}</span>
             <div className="relative cursor-pointer" onClick={toggleDark}>
