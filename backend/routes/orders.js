@@ -81,6 +81,7 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/orders
 router.post('/', async (req, res) => {
+  if (!db) return res.status(503).json({ error: 'DATABASE_URL not configured' });
   const client = await db.connect();
   try {
     const { client_id, notes, items } = req.body;

@@ -2,29 +2,44 @@ require('dotenv').config();
 const { Pool } = require('pg');
 
 if (!process.env.DATABASE_URL) {
+  console.error('');
+  console.error('=====================================================');
   console.error('ERROR: DATABASE_URL environment variable is not set.');
-  process.exit(1);
+  console.error('Add it in Railway → your service → Variables tab.');
+  console.error('Get the value from Supabase → Settings → Database');
+  console.error('=====================================================');
+  console.error('');
+  // Don't exit immediately — let the HTTP server start so Railway
+  // health checks pass, but all DB routes will return a clear error.
 }
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }, // required for Supabase
-});
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    })
+  : null;
 
 // Helper: run a query and return rows
 pool.query_rows = async (sql, params = []) => {
+  if (!pool) throw new Error('DATABASE_URL not configured. Add it in Railway Variables.');
   const result = await pool.query(sql, params);
   return result.rows;
 };
 
 // Helper: run a query and return first row
 pool.query_one = async (sql, params = []) => {
+  if (!pool) throw new Error('DATABASE_URL not configured. Add it in Railway Variables.');
   const result = await pool.query(sql, params);
   return result.rows[0] || null;
 };
 
 // Create tables and seed on startup
 async function initDB() {
+  if (!pool) {
+    console.warn('Skipping DB init — DATABASE_URL not set.');
+    return;
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
