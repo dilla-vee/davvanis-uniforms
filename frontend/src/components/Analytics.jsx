@@ -26,7 +26,7 @@ function ChartTooltip({ active, payload, label, prefix='' }) {
   return (
     <div className="card px-3 py-2 text-sm shadow-lg" style={{borderRadius:'0.5rem'}}>
       <p className="font-medium text-theme-primary mb-1">{label}</p>
-      <p className="text-theme-secondary">{prefix}{prefix==='£'?Number(payload[0].value).toFixed(2):payload[0].value}</p>
+      <p className="text-theme-secondary">{prefix}{prefix==='�Ksh '?Number(payload[0].value).toFixed(2):payload[0].value}</p>
     </div>
   );
 }
@@ -71,7 +71,7 @@ export default function Analytics() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard icon="📦" label="Unique Items"      value={summary?.total_items??0}                          bg="rgba(99,102,241,0.1)" />
         <StatCard icon="🔢" label="Total Units"       value={summary?.total_units??0}                          bg="rgba(59,130,246,0.1)" />
-        <StatCard icon="💷" label="Inventory Value"   value={`£${(summary?.total_value??0).toFixed(2)}`}       bg="rgba(34,197,94,0.1)"  />
+        <StatCard icon="💷" label="Inventory Value"   value={`�Ksh ${(summary?.total_value??0).toFixed(2)}`}       bg="rgba(34,197,94,0.1)"  />
         <StatCard icon="⚠️" label="Low Stock Items"   value={summary?.low_stock_count??0}                      bg="rgba(239,68,68,0.1)"  />
       </div>
 
@@ -93,14 +93,14 @@ export default function Analytics() {
           )}
         </div>
         <div className="card p-5">
-          <h3 className="text-base font-semibold text-theme-primary mb-4">Inventory Value by Category (£)</h3>
+          <h3 className="text-base font-semibold text-theme-primary mb-4">Inventory Value by Category (�Ksh )</h3>
           {categories.length===0 ? <p className="text-center py-10 text-theme-muted text-sm">No data available.</p> : (
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={categories} margin={{top:5,right:10,left:0,bottom:5}}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="name" tick={{fontSize:12,fill:'var(--text-secondary)'}} />
-                <YAxis tick={{fontSize:12,fill:'var(--text-secondary)'}} tickFormatter={v=>`£${v}`} />
-                <Tooltip content={<ChartTooltip prefix="£" />} />
+                <YAxis tick={{fontSize:12,fill:'var(--text-secondary)'}} tickFormatter={v=>`�Ksh ${v}`} />
+                <Tooltip content={<ChartTooltip prefix="�Ksh " />} />
                 <Bar dataKey="total_value" radius={[4,4,0,0]}>
                   {categories.map((_,i)=><Cell key={i} fill={COLORS[(i+2)%COLORS.length]} />)}
                 </Bar>
@@ -131,8 +131,8 @@ export default function Analytics() {
                     <td className="py-3 px-4 text-theme-secondary">{item.category||'—'}</td>
                     <td className="py-3 px-4 text-theme-secondary">{item.size||'—'}</td>
                     <td className="py-3 px-4 font-semibold text-theme-primary">{item.quantity}</td>
-                    <td className="py-3 px-4 text-theme-primary">{item.price!=null?`£${Number(item.price).toFixed(2)}`:'—'}</td>
-                    <td className="py-3 px-4 font-medium text-theme-primary">£{val.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-theme-primary">{item.price!=null?`�Ksh ${Number(item.price).toFixed(2)}`:'—'}</td>
+                    <td className="py-3 px-4 font-medium text-theme-primary">�Ksh {val.toFixed(2)}</td>
                     <td className="py-3 px-4"><StatusPill quantity={item.quantity} threshold={item.low_stock_threshold} /></td>
                   </tr>
                 );
@@ -154,8 +154,8 @@ export default function Analytics() {
                 </div>
                 <div className="flex gap-4 text-xs text-theme-secondary mt-1">
                   <span>Qty: <strong className="text-theme-primary">{item.quantity}</strong></span>
-                  <span>Price: <strong className="text-theme-primary">{item.price!=null?`£${Number(item.price).toFixed(2)}`:'—'}</strong></span>
-                  <span>Value: <strong className="text-theme-primary">£{val.toFixed(2)}</strong></span>
+                  <span>Price: <strong className="text-theme-primary">{item.price!=null?`�Ksh ${Number(item.price).toFixed(2)}`:'—'}</strong></span>
+                  <span>Value: <strong className="text-theme-primary">�Ksh {val.toFixed(2)}</strong></span>
                 </div>
               </div>
             );

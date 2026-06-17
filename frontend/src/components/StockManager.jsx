@@ -118,7 +118,7 @@ export default function StockManager() {
                           ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
                           : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>}
                       </td>
-                      <td className="py-3 px-4 text-theme-primary">{item.price!=null?`£${Number(item.price).toFixed(2)}`:'—'}</td>
+                      <td className="py-3 px-4 text-theme-primary">{item.price!=null?`�Ksh ${Number(item.price).toFixed(2)}`:'—'}</td>
                       <td className="py-3 px-4 text-theme-secondary">{item.low_stock_threshold}</td>
                       <td className="py-3 px-4">
                         <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{color:'#6366f1'}}>Edit</button>
@@ -147,7 +147,7 @@ export default function StockManager() {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex gap-3 text-xs text-theme-secondary">
-                      <span>Price: <strong className="text-theme-primary">{item.price!=null?`£${Number(item.price).toFixed(2)}`:'—'}</strong></span>
+                      <span>Price: <strong className="text-theme-primary">{item.price!=null?`�Ksh ${Number(item.price).toFixed(2)}`:'—'}</strong></span>
                       <span>Min: <strong className="text-theme-primary">{item.low_stock_threshold}</strong></span>
                     </div>
                     <div className="flex gap-3">
@@ -177,7 +177,7 @@ export default function StockManager() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className="label">Quantity</label><input type="number" min="0" className="input" value={form.quantity} onChange={e=>setForm(f=>({...f,quantity:e.target.value}))} /></div>
-              <div><label className="label">Price (£)</label><input type="number" min="0" step="0.01" className="input" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} /></div>
+              <div><label className="label">Price (�Ksh )</label><input type="number" min="0" step="0.01" className="input" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} /></div>
             </div>
             <div><label className="label">Low Stock Threshold</label><input type="number" min="0" className="input" value={form.low_stock_threshold} onChange={e=>setForm(f=>({...f,low_stock_threshold:e.target.value}))} /></div>
             <div className="flex gap-3 pt-2">

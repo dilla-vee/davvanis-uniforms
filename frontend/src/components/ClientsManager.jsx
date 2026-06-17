@@ -162,7 +162,7 @@ export default function ClientsManager() {
                           <div className="mt-0.5 text-xs text-theme-secondary">{order.item_count} item{order.item_count!==1?'s':''}</div>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold text-sm text-theme-primary">Â£{(order.total_price||0).toFixed(2)}</div>
+                          <div className="font-semibold text-sm text-theme-primary">ÂKsh {(order.total_price||0).toFixed(2)}</div>
                           <StatusBadge status={order.status} />
                         </div>
                       </div>
