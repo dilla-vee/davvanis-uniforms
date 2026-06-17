@@ -2,191 +2,151 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 
-// GET /api/orders - get all orders with client name and school
-router.get('/', (req, res) => {
+// GET /api/orders
+router.get('/', async (req, res) => {
   try {
-    const orders = db
-      .prepare(
-        `SELECT o.*,
-          c.name as client_name,
-          c.school as client_school,
-          (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) as item_count
-         FROM orders o
-         LEFT JOIN clients c ON o.client_id = c.id
-         ORDER BY o.order_date DESC`
-      )
-      .all();
-    res.json(orders);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    const rows = await db.query_rows(
+      `SELECT o.*,
+         c.name  AS client_name,
+         c.school AS client_school,
+         (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS item_count
+       FROM orders o
+       LEFT JOIN clients c ON o.client_id = c.id
+       ORDER BY o.order_date DESC`
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GET /api/analytics/stock-summary - must come before /:id
-router.get('/analytics/stock-summary', (req, res) => {
+// GET /api/orders/analytics/stock-summary  — must be before /:id
+router.get('/analytics/stock-summary', async (req, res) => {
   try {
-    const totalItems = db.prepare('SELECT COUNT(*) as count FROM stock').get();
-    const totalUnits = db.prepare('SELECT SUM(quantity) as total FROM stock').get();
-    const totalValue = db
-      .prepare('SELECT SUM(quantity * price) as total FROM stock WHERE price IS NOT NULL')
-      .get();
-    const lowStockCount = db
-      .prepare('SELECT COUNT(*) as count FROM stock WHERE quantity <= low_stock_threshold')
-      .get();
-
-    const categoryBreakdown = db
-      .prepare(
-        `SELECT
-          COALESCE(category, 'Uncategorised') as name,
-          SUM(quantity) as total_quantity,
-          SUM(quantity * COALESCE(price, 0)) as total_value
-         FROM stock
-         GROUP BY category
-         ORDER BY total_quantity DESC`
-      )
-      .all();
+    const [totals, lowCount, categories] = await Promise.all([
+      db.query_one(`
+        SELECT
+          COUNT(*)                                    AS total_items,
+          COALESCE(SUM(quantity), 0)                  AS total_units,
+          COALESCE(SUM(quantity * COALESCE(price,0)), 0) AS total_value,
+          COUNT(*) FILTER (WHERE quantity <= low_stock_threshold) AS low_stock_count
+        FROM stock
+      `),
+      null, // folded into totals above
+      db.query_rows(`
+        SELECT
+          COALESCE(category,'Uncategorised')          AS name,
+          SUM(quantity)                               AS total_quantity,
+          SUM(quantity * COALESCE(price,0))           AS total_value
+        FROM stock
+        GROUP BY category
+        ORDER BY total_quantity DESC
+      `),
+    ]);
 
     res.json({
-      total_items: totalItems.count,
-      total_units: totalUnits.total || 0,
-      total_value: totalValue.total || 0,
-      low_stock_count: lowStockCount.count,
-      category_breakdown: categoryBreakdown,
+      total_items:       parseInt(totals.total_items),
+      total_units:       parseInt(totals.total_units),
+      total_value:       parseFloat(totals.total_value),
+      low_stock_count:   parseInt(totals.low_stock_count),
+      category_breakdown: categories.map(r => ({
+        name:           r.name,
+        total_quantity: parseInt(r.total_quantity),
+        total_value:    parseFloat(r.total_value),
+      })),
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GET /api/orders/:id - get order details with all items and stock names
-router.get('/:id', (req, res) => {
+// GET /api/orders/:id
+router.get('/:id', async (req, res) => {
   try {
-    const order = db
-      .prepare(
-        `SELECT o.*, c.name as client_name, c.school as client_school
-         FROM orders o
-         LEFT JOIN clients c ON o.client_id = c.id
-         WHERE o.id = ?`
-      )
-      .get(req.params.id);
-
+    const order = await db.query_one(
+      `SELECT o.*, c.name AS client_name, c.school AS client_school
+       FROM orders o
+       LEFT JOIN clients c ON o.client_id = c.id
+       WHERE o.id = $1`,
+      [req.params.id]
+    );
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
-    const items = db
-      .prepare(
-        `SELECT oi.*, s.name as stock_name, s.category
-         FROM order_items oi
-         LEFT JOIN stock s ON oi.stock_id = s.id
-         WHERE oi.order_id = ?`
-      )
-      .all(req.params.id);
-
+    const items = await db.query_rows(
+      `SELECT oi.*, s.name AS stock_name, s.category
+       FROM order_items oi
+       LEFT JOIN stock s ON oi.stock_id = s.id
+       WHERE oi.order_id = $1`,
+      [req.params.id]
+    );
     res.json({ ...order, items });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// POST /api/orders - create order with items array
-router.post('/', (req, res) => {
+// POST /api/orders
+router.post('/', async (req, res) => {
+  const client = await db.connect();
   try {
     const { client_id, notes, items } = req.body;
     if (!client_id) return res.status(400).json({ error: 'client_id is required' });
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'At least one item is required' });
+    if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'At least one item is required' });
+
+    const total_price = items.reduce((s, i) => s + (parseFloat(i.unit_price)||0) * (parseInt(i.quantity)||0), 0);
+
+    await client.query('BEGIN');
+
+    const { rows: [order] } = await client.query(
+      `INSERT INTO orders (client_id, total_price, status, notes) VALUES ($1,$2,'pending',$3) RETURNING *`,
+      [client_id, total_price, notes||null]
+    );
+
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO order_items (order_id,stock_id,quantity,unit_price,size) VALUES ($1,$2,$3,$4,$5)`,
+        [order.id, item.stock_id, parseInt(item.quantity), parseFloat(item.unit_price)||0, item.size||null]
+      );
     }
 
-    // Calculate total
-    const total_price = items.reduce((sum, item) => {
-      return sum + (parseFloat(item.unit_price) || 0) * (parseInt(item.quantity) || 0);
-    }, 0);
+    await client.query('COMMIT');
 
-    const createOrder = db.transaction(() => {
-      const orderStmt = db.prepare(
-        'INSERT INTO orders (client_id, total_price, status, notes) VALUES (?, ?, ?, ?)'
-      );
-      const orderResult = orderStmt.run(client_id, total_price, 'pending', notes || null);
-      const orderId = orderResult.lastInsertRowid;
-
-      const itemStmt = db.prepare(
-        'INSERT INTO order_items (order_id, stock_id, quantity, unit_price, size) VALUES (?, ?, ?, ?, ?)'
-      );
-      for (const item of items) {
-        itemStmt.run(
-          orderId,
-          item.stock_id,
-          parseInt(item.quantity),
-          parseFloat(item.unit_price),
-          item.size || null
-        );
-      }
-
-      return orderId;
-    });
-
-    const orderId = createOrder();
-    const newOrder = db
-      .prepare(
-        `SELECT o.*, c.name as client_name, c.school as client_school
-         FROM orders o
-         LEFT JOIN clients c ON o.client_id = c.id
-         WHERE o.id = ?`
-      )
-      .get(orderId);
-
+    const newOrder = await db.query_one(
+      `SELECT o.*, c.name AS client_name, c.school AS client_school
+       FROM orders o LEFT JOIN clients c ON o.client_id = c.id WHERE o.id = $1`,
+      [order.id]
+    );
     res.status(201).json(newOrder);
   } catch (err) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
-// PUT /api/orders/:id - update order status/notes
-router.put('/:id', (req, res) => {
+// PUT /api/orders/:id
+router.put('/:id', async (req, res) => {
   try {
-    const existing = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
+    const existing = await db.query_one('SELECT * FROM orders WHERE id = $1', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Order not found' });
 
     const { status, notes } = req.body;
-    const validStatuses = ['pending', 'processing', 'completed', 'cancelled'];
+    const valid = ['pending','processing','completed','cancelled'];
+    if (status && !valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
-    if (status && !validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status value' });
-    }
-
-    db.prepare('UPDATE orders SET status = ?, notes = ? WHERE id = ?').run(
-      status !== undefined ? status : existing.status,
-      notes !== undefined ? notes : existing.notes,
-      req.params.id
+    const updated = await db.query_one(
+      `UPDATE orders SET status=$1, notes=$2 WHERE id=$3
+       RETURNING *`,
+      [status!==undefined?status:existing.status, notes!==undefined?notes:existing.notes, req.params.id]
     );
-
-    const updated = db
-      .prepare(
-        `SELECT o.*, c.name as client_name, c.school as client_school
-         FROM orders o
-         LEFT JOIN clients c ON o.client_id = c.id
-         WHERE o.id = ?`
-      )
-      .get(req.params.id);
-
     res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// DELETE /api/orders/:id - delete order
-router.delete('/:id', (req, res) => {
+// DELETE /api/orders/:id
+router.delete('/:id', async (req, res) => {
   try {
-    const existing = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
+    const existing = await db.query_one('SELECT id FROM orders WHERE id = $1', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Order not found' });
-
-    db.prepare('DELETE FROM order_items WHERE order_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM orders WHERE id = ?').run(req.params.id);
-
+    // order_items deleted via ON DELETE CASCADE
+    await db.query_rows('DELETE FROM orders WHERE id = $1', [req.params.id]);
     res.json({ message: 'Order deleted successfully' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 module.exports = router;
