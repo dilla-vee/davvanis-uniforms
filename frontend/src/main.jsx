@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './index.css';
 
-// Always start light — only go dark if user explicitly saved 'dark'
 try {
   const saved = localStorage.getItem('theme');
   if (saved === 'dark') {

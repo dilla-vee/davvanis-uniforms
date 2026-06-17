@@ -13,12 +13,15 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: '2rem', fontFamily: 'sans-serif', background: '#fff', minHeight: '100vh' }}>
-          <h2 style={{ color: '#ef4444' }}>Something went wrong</h2>
-          <pre style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '8px', fontSize: '13px', overflowX: 'auto' }}>
+        <div style={{ padding: '2rem', fontFamily: 'sans-serif', background: '#fff', minHeight: '100vh', color: '#111' }}>
+          <h2 style={{ color: '#ef4444', marginBottom: '1rem' }}>Something went wrong</h2>
+          <p style={{ marginBottom: '0.5rem', color: '#555' }}>Error message:</p>
+          <pre style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '8px', fontSize: '14px', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', border: '1px solid #e5e7eb' }}>
             {this.state.error.message}
+            {'\n\n'}
+            {this.state.error.stack}
           </pre>
-          <button onClick={() => window.location.reload()} style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+          <button onClick={() => window.location.reload()} style={{ marginTop: '1rem', padding: '0.5rem 1.5rem', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}>
             Reload
           </button>
         </div>
@@ -44,6 +47,20 @@ function getInitialDark() {
   }
 }
 
+function applyTheme(dark) {
+  try {
+    if (dark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  } catch {
+    // localStorage may be blocked in some environments
+  }
+}
+
 export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -52,13 +69,7 @@ export default function App() {
   const toggleDark = () => {
     const next = !dark;
     setDark(next);
-    if (next) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
+    applyTheme(next);
   };
 
   const handleNav = (page) => {
