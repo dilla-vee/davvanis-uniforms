@@ -113,4 +113,45 @@ router.delete('/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/clients/:id/photos
+router.get('/:id/photos', async (req, res) => {
+  try {
+    const photos = await db.query_rows(
+      'SELECT * FROM client_uniform_photos WHERE client_id = $1 ORDER BY created_at DESC',
+      [req.params.id]
+    );
+    res.json(photos);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/clients/:id/photos
+router.post('/:id/photos', upload.single('photo'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Photo is required' });
+    const { caption } = req.body;
+    const image_url = `/uploads/${req.file.filename}`;
+    const photo = await db.query_one(
+      `INSERT INTO client_uniform_photos (client_id, image_url, caption)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [req.params.id, image_url, caption || null]
+    );
+    res.status(201).json(photo);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// DELETE /api/clients/:id/photos/:photoId
+router.delete('/:id/photos/:photoId', async (req, res) => {
+  try {
+    const photo = await db.query_one(
+      'SELECT * FROM client_uniform_photos WHERE id = $1 AND client_id = $2',
+      [req.params.photoId, req.params.id]
+    );
+    if (!photo) return res.status(404).json({ error: 'Photo not found' });
+    await db.query_rows('DELETE FROM client_uniform_photos WHERE id = $1', [req.params.photoId]);
+    const imgPath = path.join(__dirname, '..', photo.image_url);
+    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    res.json({ message: 'Photo deleted' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;

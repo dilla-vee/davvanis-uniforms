@@ -73,6 +73,14 @@ async function initDB() {
         unit_price NUMERIC(10,2),
         size       TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS client_uniform_photos (
+        id         SERIAL PRIMARY KEY,
+        client_id  INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+        image_url  TEXT NOT NULL,
+        caption    TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `);
 
     const { rows } = await client.query('SELECT COUNT(*) as count FROM clients');
