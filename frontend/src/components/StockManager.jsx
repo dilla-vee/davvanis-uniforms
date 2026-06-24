@@ -170,7 +170,11 @@ function SalesHistoryModal({ onClose }) {
   const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
-    fetch('/api/stock/sales').then(r => r.json()).then(setSales).finally(() => setLoading(false));
+    fetch('/api/stock/sales')
+      .then(r => r.json())
+      .then(data => setSales(Array.isArray(data) ? data : []))
+      .catch(() => setSales([]))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
