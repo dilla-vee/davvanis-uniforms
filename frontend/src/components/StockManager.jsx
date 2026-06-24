@@ -192,7 +192,7 @@ function SalesHistoryModal({ onClose }) {
             onClick={() => setExpanded(expanded === sale.id ? null : sale.id)}>
             <div>
               <span className="font-semibold text-theme-primary text-sm">
-                {new Date(sale.sale_date + 'T00:00:00').toLocaleDateString('en-KE', { weekday:'short', day:'numeric', month:'short', year:'numeric' })}
+                {new Date(String(sale.sale_date).split('T')[0] + 'T00:00:00').toLocaleDateString('en-KE', { weekday:'short', day:'numeric', month:'short', year:'numeric' })}
               </span>
               {sale.notes && <span className="ml-2 text-xs text-theme-muted">— {sale.notes}</span>}
               <div className="text-xs text-theme-secondary mt-0.5">

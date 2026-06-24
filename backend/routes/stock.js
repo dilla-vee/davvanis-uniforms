@@ -31,7 +31,7 @@ router.get('/low', async (req, res) => {
 router.get('/sales', async (req, res) => {
   try {
     const sales = await db.query_rows(
-      `SELECT ds.*,
+      `SELECT ds.id, ds.sale_date::text AS sale_date, ds.notes, ds.total_value, ds.created_at,
          json_agg(json_build_object(
            'id',         dsi.id,
            'stock_id',   dsi.stock_id,
