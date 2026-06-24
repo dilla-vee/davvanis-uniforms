@@ -68,9 +68,8 @@ function UniformPhotos({ clientId }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
-  const [caption, setCaption] = useState('');
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
+  // queue: array of { file, preview, caption }
+  const [queue, setQueue] = useState([]);
   const [lightbox, setLightbox] = useState(null);
   const fileRef = useRef(null);
 
@@ -84,40 +83,61 @@ function UniformPhotos({ clientId }) {
 
   useEffect(() => { fetchPhotos(); }, [clientId]);
 
-  const handleFileChange = e => {
-    const f = e.target.files[0];
-    if (!f) return;
-    setFile(f);
-    const reader = new FileReader();
-    reader.onloadend = () => setPreview(reader.result);
-    reader.readAsDataURL(f);
+  // When user picks files, add them all to the queue
+  const handleFilesChange = e => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setQueue(q => [...q, { file, preview: reader.result, caption: '' }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    // reset input so same files can be re-selected
+    e.target.value = '';
   };
 
-  const handleUpload = async () => {
-    if (!file) return;
+  const updateCaption = (idx, value) => {
+    setQueue(q => q.map((item, i) => i === idx ? { ...item, caption: value } : item));
+  };
+
+  const removeFromQueue = idx => {
+    setQueue(q => q.filter((_, i) => i !== idx));
+  };
+
+  const handleUploadAll = async () => {
+    if (!queue.length) return;
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('photo', file);
-      fd.append('caption', caption);
-      const r = await fetch(`/api/clients/${clientId}/photos`, { method: 'POST', body: fd });
-      if (!r.ok) throw new Error('Upload failed');
+      // Upload all photos in parallel
+      await Promise.all(queue.map(item => {
+        const fd = new FormData();
+        fd.append('photo', item.file);
+        fd.append('caption', item.caption);
+        return fetch(`/api/clients/${clientId}/photos`, { method: 'POST', body: fd });
+      }));
       await fetchPhotos();
+      setQueue([]);
       setShowUpload(false);
-      setFile(null);
-      setPreview(null);
-      setCaption('');
-    } catch (e) { alert(e.message); } finally { setUploading(false); }
+    } catch (e) { alert('Some uploads failed: ' + e.message); }
+    finally { setUploading(false); }
   };
 
-  const handleDelete = async (photoId) => {
+  const handleDelete = async photoId => {
     if (!window.confirm('Delete this photo?')) return;
     await fetch(`/api/clients/${clientId}/photos/${photoId}`, { method: 'DELETE' });
     setPhotos(p => p.filter(x => x.id !== photoId));
   };
 
+  const cancelUpload = () => {
+    setShowUpload(false);
+    setQueue([]);
+  };
+
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-semibold text-theme-secondary">
           Uniform Photos
@@ -128,47 +148,77 @@ function UniformPhotos({ clientId }) {
           )}
         </h4>
         <button
-          onClick={() => { setShowUpload(v => !v); setFile(null); setPreview(null); setCaption(''); }}
+          onClick={() => showUpload ? cancelUpload() : setShowUpload(true)}
           className="text-xs font-medium px-3 py-1 rounded-lg"
           style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
-          {showUpload ? 'Cancel' : '+ Add Photo'}
+          {showUpload ? 'Cancel' : '+ Add Photos'}
         </button>
       </div>
 
-      {/* Upload form */}
+      {/* Upload panel */}
       {showUpload && (
-        <div className="mb-4 p-4 rounded-lg" style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-muted)' }}>
-          <p className="text-xs font-medium text-theme-secondary mb-3">Upload Uniform Photo</p>
-          <div className="flex gap-3 items-start">
-            {/* Preview box */}
-            <div
-              onClick={() => fileRef.current?.click()}
-              className="shrink-0 cursor-pointer rounded-lg overflow-hidden flex items-center justify-center"
-              style={{ width: '80px', height: '80px', border: '2px dashed var(--border)', backgroundColor: 'var(--bg-card)' }}>
-              {preview
-                ? <img src={preview} alt="preview" className="w-full h-full object-cover" />
-                : <span style={{ fontSize: '24px' }}>+</span>}
-            </div>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-            <div className="flex-1 space-y-2">
-              <input
-                className="input text-sm"
-                placeholder="Caption (e.g. Boys shirt — Age 7-8)"
-                value={caption}
-                onChange={e => setCaption(e.target.value)} />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleUpload}
-                  disabled={!file || uploading}
-                  className="btn-primary text-xs py-1.5 px-3">
-                  {uploading ? 'Uploading...' : 'Upload'}
+        <div className="mb-4 p-4 rounded-lg space-y-3"
+          style={{ border: '1px solid var(--border)', backgroundColor: 'var(--bg-muted)' }}>
+
+          {/* Drop zone / pick button */}
+          <div
+            onClick={() => fileRef.current?.click()}
+            className="cursor-pointer rounded-lg flex flex-col items-center justify-center py-5 text-center transition-colors hover-theme"
+            style={{ border: '2px dashed var(--border)', backgroundColor: 'var(--bg-card)' }}>
+            <span style={{ fontSize: '28px' }}>📁</span>
+            <p className="text-sm font-medium text-theme-primary mt-1">Click to choose photos</p>
+            <p className="text-xs text-theme-muted mt-0.5">Select one or multiple images at once</p>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleFilesChange} />
+
+          {/* Queue list */}
+          {queue.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-theme-secondary">
+                {queue.length} photo{queue.length !== 1 ? 's' : ''} selected — add captions then upload
+              </p>
+              {queue.map((item, idx) => (
+                <div key={idx} className="flex gap-3 items-center p-2 rounded-lg"
+                  style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <img src={item.preview} alt=""
+                    className="w-14 h-14 rounded-lg object-cover shrink-0"
+                    style={{ border: '1px solid var(--border)' }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-theme-muted truncate mb-1">{item.file.name}</p>
+                    <input
+                      className="input text-xs py-1"
+                      placeholder="Caption (e.g. Girls skirt — Age 9-10)"
+                      value={item.caption}
+                      onChange={e => updateCaption(idx, e.target.value)} />
+                  </div>
+                  <button onClick={() => removeFromQueue(idx)}
+                    className="shrink-0 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center"
+                    style={{ backgroundColor: '#fee2e2', color: '#ef4444' }}>
+                    x
+                  </button>
+                </div>
+              ))}
+
+              <div className="flex gap-2 pt-1">
+                <button onClick={handleUploadAll} disabled={uploading} className="btn-primary flex-1">
+                  {uploading
+                    ? 'Uploading...'
+                    : `Upload ${queue.length} Photo${queue.length !== 1 ? 's' : ''}`}
                 </button>
-                <span className="text-xs text-theme-muted self-center">
-                  {file ? file.name : 'Click the box to choose a photo'}
-                </span>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="btn-secondary text-xs px-3">
+                  + More
+                </button>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -203,7 +253,6 @@ function UniformPhotos({ clientId }) {
                   <p className="text-xs text-theme-secondary truncate">{photo.caption}</p>
                 </div>
               )}
-              {/* Delete button — appears on hover */}
               <button
                 onClick={() => handleDelete(photo.id)}
                 className="absolute top-1 right-1 rounded-full text-white text-xs w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -217,8 +266,7 @@ function UniformPhotos({ clientId }) {
 
       {/* Lightbox */}
       {lightbox && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}
           onClick={() => setLightbox(null)}>
           <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
@@ -228,8 +276,24 @@ function UniformPhotos({ clientId }) {
             {lightbox.caption && (
               <p className="text-center text-white mt-3 text-sm">{lightbox.caption}</p>
             )}
-            <button
-              onClick={() => setLightbox(null)}
+            {/* Navigation arrows */}
+            {photos.length > 1 && (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); const i = photos.findIndex(p => p.id === lightbox.id); setLightbox(photos[(i - 1 + photos.length) % photos.length]); }}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-10 w-8 h-8 rounded-full text-white font-bold flex items-center justify-center"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+                  &lt;
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); const i = photos.findIndex(p => p.id === lightbox.id); setLightbox(photos[(i + 1) % photos.length]); }}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-10 w-8 h-8 rounded-full text-white font-bold flex items-center justify-center"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+                  &gt;
+                </button>
+              </>
+            )}
+            <button onClick={() => setLightbox(null)}
               className="absolute -top-3 -right-3 w-8 h-8 rounded-full text-white font-bold flex items-center justify-center"
               style={{ backgroundColor: '#ef4444' }}>
               X
