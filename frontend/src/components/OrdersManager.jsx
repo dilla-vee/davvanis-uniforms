@@ -33,6 +33,7 @@ function StatusBadge({ status }) {
 }
 
 const STATUSES = ['pending','processing','completed','cancelled'];
+const KSH = 'Ksh ';
 
 export default function OrdersManager() {
   const [orders, setOrders] = useState([]);
@@ -140,7 +141,7 @@ export default function OrdersManager() {
                       <td className="py-3 px-4 text-xs text-theme-secondary">{order.client_school||'—'}</td>
                       <td className="py-3 px-4 text-theme-secondary">{new Date(order.order_date).toLocaleDateString()}</td>
                       <td className="py-3 px-4 text-theme-primary">{order.item_count}</td>
-                      <td className="py-3 px-4 font-medium text-theme-primary">�Ksh {(order.total_price||0).toFixed(2)}</td>
+                      <td className="py-3 px-4 font-medium text-theme-primary">{KSH}{(order.total_price||0).toFixed(2)}</td>
                       <td className="py-3 px-4"><StatusBadge status={order.status} /></td>
                       <td className="py-3 px-4" onClick={e=>e.stopPropagation()}>
                         <button onClick={()=>openDetail(order)} className="text-xs font-medium mr-3" style={{color:'#6366f1'}}>View</button>
@@ -167,7 +168,7 @@ export default function OrdersManager() {
                       <span>{new Date(order.order_date).toLocaleDateString()}</span>
                       <span>{order.item_count} item{order.item_count!==1?'s':''}</span>
                     </div>
-                    <span className="font-bold text-theme-primary">�Ksh {(order.total_price||0).toFixed(2)}</span>
+                    <span className="font-bold text-theme-primary">{KSH}{(order.total_price||0).toFixed(2)}</span>
                   </div>
                 </div>
               ))}
@@ -201,9 +202,9 @@ export default function OrdersManager() {
                 {updatingStatus && <span className="text-xs text-theme-muted">Saving...</span>}
               </div>
               {orderDetail.notes && (
-                <div className="p-3 rounded-lg" style={{background:'#fef3c7',border:'1px solid #fde68a'}}>
-                  <p className="text-xs font-medium mb-1" style={{color:'#92400e'}}>Notes</p>
-                  <p className="text-sm text-theme-primary">{orderDetail.notes}</p>
+                <div className="p-3 rounded-lg text-theme-secondary" style={{backgroundColor:'var(--bg-muted)'}}>
+                  <p className="text-xs font-medium mb-1">Notes</p>
+                  <p className="text-sm">{orderDetail.notes}</p>
                 </div>
               )}
               <div>
@@ -219,8 +220,8 @@ export default function OrdersManager() {
                           <td className="py-2 px-3 font-medium text-theme-primary">{item.stock_name||`#${item.stock_id}`}</td>
                           <td className="py-2 px-3 text-theme-secondary">{item.size||'—'}</td>
                           <td className="py-2 px-3 text-theme-primary">{item.quantity}</td>
-                          <td className="py-2 px-3 text-theme-primary">�Ksh {(item.unit_price||0).toFixed(2)}</td>
-                          <td className="py-2 px-3 font-medium text-theme-primary">�Ksh {((item.unit_price||0)*item.quantity).toFixed(2)}</td>
+                          <td className="py-2 px-3 text-theme-primary">{KSH}{(item.unit_price||0).toFixed(2)}</td>
+                          <td className="py-2 px-3 font-medium text-theme-primary">{KSH}{((item.unit_price||0)*item.quantity).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -230,7 +231,7 @@ export default function OrdersManager() {
               <div className="flex justify-end">
                 <div className="px-5 py-3 rounded-lg" style={{backgroundColor:'rgba(99,102,241,0.1)'}}>
                   <span className="text-sm text-theme-secondary">Total: </span>
-                  <span className="text-lg font-bold" style={{color:'#4f46e5'}}>�Ksh {(orderDetail.total_price||0).toFixed(2)}</span>
+                  <span className="text-lg font-bold" style={{color:'#4f46e5'}}>{KSH}{(orderDetail.total_price||0).toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -264,7 +265,7 @@ export default function OrdersManager() {
                         <div><label className="text-xs text-theme-muted mb-1 block">Stock Item</label>
                           <select className="input text-xs" value={item.stock_id} onChange={e=>updateItem(idx,'stock_id',e.target.value)}>
                             <option value="">Select...</option>
-                            {stock.map(s=><option key={s.id} value={s.id}>{s.name}{s.size?` (${s.size})`:''} — �Ksh {s.price?.toFixed(2)||'N/A'}</option>)}
+                             {stock.map(s=><option key={s.id} value={s.id}>{s.name}{s.size?` (${s.size})`:''} — Ksh {s.price?.toFixed(2)||'N/A'}</option>)}
                           </select>
                         </div>
                         <div><label className="text-xs text-theme-muted mb-1 block">Size</label>
@@ -273,7 +274,7 @@ export default function OrdersManager() {
                       </div>
                       <div className="grid grid-cols-3 gap-2 items-end">
                         <div><label className="text-xs text-theme-muted mb-1 block">Qty</label><input type="number" min="1" className="input text-xs" value={item.quantity} onChange={e=>updateItem(idx,'quantity',e.target.value)} /></div>
-                        <div><label className="text-xs text-theme-muted mb-1 block">Price (�Ksh )</label><input type="number" min="0" step="0.01" className="input text-xs" value={item.unit_price} onChange={e=>updateItem(idx,'unit_price',e.target.value)} /></div>
+                        <div><label className="text-xs text-theme-muted mb-1 block">Price (Ksh)</label><input type="number" min="0" step="0.01" className="input text-xs" value={item.unit_price} onChange={e=>updateItem(idx,'unit_price',e.target.value)} /></div>
                         <button type="button" onClick={()=>removeItem(idx)} className="text-xs pb-1" style={{color:'#ef4444'}}>Remove</button>
                       </div>
                     </div>
@@ -284,7 +285,7 @@ export default function OrdersManager() {
             {addForm.items.length>0 && (
               <div className="flex justify-end px-4 py-2 rounded-lg" style={{backgroundColor:'rgba(99,102,241,0.1)'}}>
                 <span className="text-sm text-theme-secondary">Running Total: </span>
-                <span className="ml-2 font-bold" style={{color:'#4f46e5'}}>�Ksh {runningTotal.toFixed(2)}</span>
+                <span className="ml-2 font-bold" style={{color:'#4f46e5'}}>{KSH}{runningTotal.toFixed(2)}</span>
               </div>
             )}
             <div className="flex gap-3 pt-1">

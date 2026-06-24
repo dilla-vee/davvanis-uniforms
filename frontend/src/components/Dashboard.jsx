@@ -141,10 +141,10 @@ export default function Dashboard() {
                     <td className="py-2.5 pr-4 font-medium" style={{ color: '#6366f1' }}>#{order.id}</td>
                     <td className="py-2.5 pr-4 text-theme-primary">
                       {order.client_name || '—'}
-                      <span className="block text-xs text-theme-muted sm:hidden">�Ksh {(order.total_price||0).toFixed(2)} · {new Date(order.order_date).toLocaleDateString()}</span>
+                      <span className="block text-xs text-theme-muted sm:hidden">Ksh {(order.total_price||0).toFixed(2)} · {new Date(order.order_date).toLocaleDateString()}</span>
                     </td>
                     <td className="py-2.5 pr-4 text-theme-secondary hidden sm:table-cell">{new Date(order.order_date).toLocaleDateString()}</td>
-                    <td className="py-2.5 pr-4 font-medium text-theme-primary hidden sm:table-cell">�Ksh {(order.total_price||0).toFixed(2)}</td>
+                    <td className="py-2.5 pr-4 font-medium text-theme-primary hidden sm:table-cell">Ksh {(order.total_price||0).toFixed(2)}</td>
                     <td className="py-2.5"><StatusBadge status={order.status} /></td>
                   </tr>
                 ))}
