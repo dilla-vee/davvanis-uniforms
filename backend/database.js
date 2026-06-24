@@ -81,6 +81,25 @@ async function initDB() {
         caption    TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS daily_sales (
+        id         SERIAL PRIMARY KEY,
+        sale_date  DATE NOT NULL DEFAULT CURRENT_DATE,
+        notes      TEXT,
+        total_value NUMERIC(10,2) DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS daily_sale_items (
+        id           SERIAL PRIMARY KEY,
+        sale_id      INTEGER REFERENCES daily_sales(id) ON DELETE CASCADE,
+        stock_id     INTEGER REFERENCES stock(id) ON DELETE SET NULL,
+        stock_name   TEXT,
+        stock_size   TEXT,
+        qty_sold     INTEGER NOT NULL,
+        unit_price   NUMERIC(10,2),
+        subtotal     NUMERIC(10,2)
+      );
     `);
 
     const { rows } = await client.query('SELECT COUNT(*) as count FROM clients');
