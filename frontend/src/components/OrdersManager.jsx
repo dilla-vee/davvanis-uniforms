@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../utils/api';
 
 function Modal({ title, onClose, children, wide }) {
   useEffect(() => {
@@ -49,20 +50,20 @@ export default function OrdersManager() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const fetchOrders = async () => {
-    try { setLoading(true); const r = await fetch('/api/orders'); setOrders(await r.json()); }
+    try { setLoading(true); const r = await apiFetch('/api/orders'); setOrders(await r.json()); }
     catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { fetchOrders(); }, []);
 
   const openDetail = async order => {
     setViewOrder(order); setDetailLoading(true);
-    try { const r = await fetch(`/api/orders/${order.id}`); setOrderDetail(await r.json()); }
+    try { const r = await apiFetch(`/api/orders/${order.id}`); setOrderDetail(await r.json()); }
     catch { setOrderDetail(null); } finally { setDetailLoading(false); }
   };
 
   const openAdd = async () => {
     setAddError(''); setAddForm({ client_id:'', notes:'', items:[] });
-    const [cR, sR] = await Promise.all([fetch('/api/clients'), fetch('/api/stock')]);
+    const [cR, sR] = await Promise.all([apiFetch('/api/clients'), apiFetch('/api/stock')]);
     setClients(await cR.json()); setStock(await sR.json()); setShowAddModal(true);
   };
 
@@ -83,7 +84,7 @@ export default function OrdersManager() {
     for (const i of addForm.items) { if(!i.stock_id){setAddError('Each item needs a stock selection');return;} }
     setSaving(true);
     try {
-      const r = await fetch('/api/orders', { method:'POST', headers:{'Content-Type':'application/json'},
+      const r = await apiFetch('/api/orders', { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ client_id:parseInt(addForm.client_id), notes:addForm.notes||null,
           items: addForm.items.map(i=>({ stock_id:parseInt(i.stock_id), quantity:parseInt(i.quantity), unit_price:parseFloat(i.unit_price)||0, size:i.size||null })) }) });
       if (!r.ok) { const d=await r.json(); throw new Error(d.error||'Failed'); }
@@ -94,14 +95,14 @@ export default function OrdersManager() {
   const handleStatusChange = async (id, status) => {
     setUpdatingStatus(true);
     try {
-      const r = await fetch(`/api/orders/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ status }) });
+      const r = await apiFetch(`/api/orders/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ status }) });
       const d = await r.json(); setOrderDetail(o => o?{...o,status:d.status}:o); await fetchOrders();
     } catch {} finally { setUpdatingStatus(false); }
   };
 
   const handleDelete = async id => {
     if (!window.confirm('Delete this order?')) return;
-    const r = await fetch(`/api/orders/${id}`, { method:'DELETE' });
+    const r = await apiFetch(`/api/orders/${id}`, { method:'DELETE' });
     if (r.ok) { await fetchOrders(); setViewOrder(null); setOrderDetail(null); }
   };
 

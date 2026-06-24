@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { apiFetch, resolveImageUrl } from '../utils/api';
 
 const KSH = 'Ksh ';
 
@@ -49,7 +50,7 @@ function Avatar({ imageUrl, name, large }) {
   const size = large ? 'w-20 h-20 text-2xl' : 'w-12 h-12 text-base';
   if (imageUrl) {
     return (
-      <img src={imageUrl} alt={name}
+      <img src={resolveImageUrl(imageUrl)} alt={name}
         className={`${size} rounded-full object-cover`}
         style={{ border: '2px solid var(--border)' }} />
     );
@@ -76,7 +77,7 @@ function UniformPhotos({ clientId }) {
   const fetchPhotos = async () => {
     try {
       setLoading(true);
-      const r = await fetch(`/api/clients/${clientId}/photos`);
+      const r = await apiFetch(`/api/clients/${clientId}/photos`);
       setPhotos(await r.json());
     } catch (_) {} finally { setLoading(false); }
   };
@@ -115,7 +116,7 @@ function UniformPhotos({ clientId }) {
         const fd = new FormData();
         fd.append('photo', item.file);
         fd.append('caption', item.caption);
-        return fetch(`/api/clients/${clientId}/photos`, { method: 'POST', body: fd });
+        return apiFetch(`/api/clients/${clientId}/photos`, { method: 'POST', body: fd });
       }));
       await fetchPhotos();
       setQueue([]);
@@ -126,7 +127,7 @@ function UniformPhotos({ clientId }) {
 
   const handleDelete = async photoId => {
     if (!window.confirm('Delete this photo?')) return;
-    await fetch(`/api/clients/${clientId}/photos/${photoId}`, { method: 'DELETE' });
+    await apiFetch(`/api/clients/${clientId}/photos/${photoId}`, { method: 'DELETE' });
     setPhotos(p => p.filter(x => x.id !== photoId));
   };
 
@@ -242,7 +243,7 @@ function UniformPhotos({ clientId }) {
             <div key={photo.id} className="relative group rounded-lg overflow-hidden"
               style={{ border: '1px solid var(--border)' }}>
               <img
-                src={photo.image_url}
+                src={resolveImageUrl(photo.image_url)}
                 alt={photo.caption || 'Uniform photo'}
                 className="w-full object-cover cursor-pointer"
                 style={{ height: '90px' }}
@@ -270,7 +271,7 @@ function UniformPhotos({ clientId }) {
           style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}
           onClick={() => setLightbox(null)}>
           <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-            <img src={lightbox.image_url} alt={lightbox.caption || 'Uniform'}
+            <img src={resolveImageUrl(lightbox.image_url)} alt={lightbox.caption || 'Uniform'}
               className="w-full rounded-xl object-contain"
               style={{ maxHeight: '75vh' }} />
             {lightbox.caption && (
@@ -324,7 +325,7 @@ export default function ClientsManager() {
   const fetchClients = async () => {
     try {
       setLoading(true);
-      const r = await fetch('/api/clients');
+      const r = await apiFetch('/api/clients');
       setClients(await r.json());
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
@@ -334,7 +335,7 @@ export default function ClientsManager() {
     setViewClient(client);
     setDetailLoading(true);
     try {
-      const r = await fetch(`/api/clients/${client.id}`);
+      const r = await apiFetch(`/api/clients/${client.id}`);
       setClientDetail(await r.json());
     } catch { setClientDetail(null); } finally { setDetailLoading(false); }
   };
@@ -349,7 +350,7 @@ export default function ClientsManager() {
     e.stopPropagation();
     setEditClient(client);
     setForm({ name: client.name || '', school: client.school || '', contact: client.contact || '', email: client.email || '', description: client.description || '' });
-    setImageFile(null); setImagePreview(client.image_url || null); setFormError(''); setShowForm(true);
+    setImageFile(null); setImagePreview(client.image_url ? resolveImageUrl(client.image_url) : null); setFormError(''); setShowForm(true);
   };
 
   const handleImageChange = e => {
@@ -366,7 +367,7 @@ export default function ClientsManager() {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, v));
       if (imageFile) fd.append('image', imageFile);
-      const r = await fetch(
+      const r = await apiFetch(
         editClient ? `/api/clients/${editClient.id}` : '/api/clients',
         { method: editClient ? 'PUT' : 'POST', body: fd }
       );
@@ -378,7 +379,7 @@ export default function ClientsManager() {
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Delete this client and all their orders?')) return;
-    const r = await fetch(`/api/clients/${id}`, { method: 'DELETE' });
+    const r = await apiFetch(`/api/clients/${id}`, { method: 'DELETE' });
     if (r.ok) {
       await fetchClients();
       if (viewClient?.id === id) { setViewClient(null); setClientDetail(null); }

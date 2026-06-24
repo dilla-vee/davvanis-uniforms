@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { apiFetch } from '../utils/api';
 
 const COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#a855f7','#ec4899','#14b8a6'];
 const KSH = 'Ksh ';
@@ -48,8 +49,8 @@ export default function Analytics() {
       try {
         setLoading(true);
         const [sR, stR] = await Promise.all([
-          fetch('/api/orders/analytics/stock-summary'),
-          fetch('/api/stock'),
+          apiFetch('/api/orders/analytics/stock-summary'),
+          apiFetch('/api/stock'),
         ]);
         setSummary(await sR.json());
         setAllStock(await stR.json());

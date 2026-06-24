@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { apiFetch } from '../utils/api';
 
 const CATEGORIES = ['Tops', 'Bottoms', 'Sports', 'Outerwear', 'Accessories', 'Other'];
 const KSH = 'Ksh ';
@@ -58,7 +59,7 @@ function DailySalesModal({ stock, onClose, onSaved }) {
     }
     setSaving(true);
     try {
-      const r = await fetch('/api/stock/sales', {
+      const r = await apiFetch('/api/stock/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -170,7 +171,7 @@ function SalesHistoryModal({ onClose }) {
   const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
-    fetch('/api/stock/sales')
+    apiFetch('/api/stock/sales')
       .then(r => r.json())
       .then(data => setSales(Array.isArray(data) ? data : []))
       .catch(() => setSales([]))
@@ -250,7 +251,7 @@ export default function StockManager() {
   const [showHistory, setShowHistory] = useState(false);
 
   const fetchStock = async () => {
-    try { setLoading(true); const r = await fetch('/api/stock'); setStock(await r.json()); }
+    try { setLoading(true); const r = await apiFetch('/api/stock'); setStock(await r.json()); }
     catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { fetchStock(); }, []);
@@ -264,7 +265,7 @@ export default function StockManager() {
     if (!form.name.trim()) { setFormError('Name is required'); return; }
     setSaving(true);
     try {
-      const r = await fetch(editItem?`/api/stock/${editItem.id}`:'/api/stock', {
+      const r = await apiFetch(editItem?`/api/stock/${editItem.id}`:'/api/stock', {
         method: editItem?'PUT':'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ ...form, quantity:form.quantity!==''?parseInt(form.quantity):0, price:form.price!==''?parseFloat(form.price):null, low_stock_threshold:form.low_stock_threshold!==''?parseInt(form.low_stock_threshold):10 }),
       });
@@ -274,14 +275,14 @@ export default function StockManager() {
   };
 
   const handleDelete = async id => {
-    const r = await fetch(`/api/stock/${id}`, { method:'DELETE' });
+    const r = await apiFetch(`/api/stock/${id}`, { method:'DELETE' });
     if (r.ok) { await fetchStock(); setDeleteConfirm(null); }
   };
 
   const saveQty = async item => {
     const qty = parseInt(qtyValue);
     if (!isNaN(qty) && qty >= 0) {
-      await fetch(`/api/stock/${item.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ quantity:qty }) });
+      await apiFetch(`/api/stock/${item.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ quantity:qty }) });
       await fetchStock();
     }
     setEditingQty(null);

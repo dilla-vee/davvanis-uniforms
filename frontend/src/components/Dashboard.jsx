@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../utils/api';
 
 function StatCard({ icon, label, value, bg, loading }) {
   return (
@@ -42,7 +43,7 @@ export default function Dashboard() {
       try {
         setLoading(true);
         const [sR, oR, cR, lR] = await Promise.all([
-          fetch('/api/stock'), fetch('/api/orders'), fetch('/api/clients'), fetch('/api/stock/low'),
+          apiFetch('/api/stock'), apiFetch('/api/orders'), apiFetch('/api/clients'), apiFetch('/api/stock/low'),
         ]);
         const [s, o, c, l] = await Promise.all([sR.json(), oR.json(), cR.json(), lR.json()]);
         setStock(s); setOrders(o); setClients(c); setLowStock(l);
