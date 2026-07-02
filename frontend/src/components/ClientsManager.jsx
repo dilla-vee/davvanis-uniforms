@@ -307,7 +307,7 @@ function UniformPhotos({ clientId }) {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────
-export default function ClientsManager() {
+export default function ClientsManager({ user }) {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -429,7 +429,9 @@ export default function ClientsManager() {
               <div className="flex gap-2 pt-2" style={{ borderTop: '1px solid var(--border-light)' }}
                 onClick={e => e.stopPropagation()}>
                 <button onClick={e => openEdit(e, client)} className="text-xs font-medium" style={{ color: '#6366f1' }}>Edit</button>
-                <button onClick={e => handleDelete(e, client.id)} className="text-xs font-medium ml-auto" style={{ color: '#ef4444' }}>Delete</button>
+                {user?.role === 'admin' && (
+                  <button onClick={e => handleDelete(e, client.id)} className="text-xs font-medium ml-auto" style={{ color: '#ef4444' }}>Delete</button>
+                )}
               </div>
             </div>
           ))}

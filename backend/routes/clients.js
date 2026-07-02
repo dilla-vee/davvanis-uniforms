@@ -5,17 +5,13 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../database');
 
-// Ensure uploads directory exists
+const { uploadToSupabase } = require('../supabase');
+
+// Ensure uploads directory exists (for fallback local uploads)
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, unique + path.extname(file.originalname));
-  },
-});
+const storage = multer.memoryStorage();
 const fileFilter = (req, file, cb) => {
   const ok = /jpeg|jpg|png|gif|webp/.test(path.extname(file.originalname).toLowerCase());
   ok ? cb(null, true) : cb(new Error('Only image files are allowed'));
@@ -60,7 +56,18 @@ router.post('/', upload.single('image'), async (req, res) => {
     if (!name)   return res.status(400).json({ error: 'Name is required' });
     if (!school) return res.status(400).json({ error: 'School is required' });
 
-    const image_url = req.file ? `/uploads/${req.file.filename}` : null;
+    let image_url = null;
+    if (req.file) {
+      try {
+        image_url = await uploadToSupabase(req.file.buffer, req.file.originalname, req.file.mimetype);
+      } catch (uploadError) {
+        console.error('Supabase upload failed, falling back to local storage:', uploadError.message);
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(req.file.originalname);
+        fs.writeFileSync(path.join(uploadsDir, uniqueName), req.file.buffer);
+        image_url = `/uploads/${uniqueName}`;
+      }
+    }
+
     const client = await db.query_one(
       `INSERT INTO clients (name,school,contact,email,description,image_url)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
@@ -77,7 +84,18 @@ router.put('/:id', upload.single('image'), async (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Client not found' });
 
     const { name, school, contact, email, description } = req.body;
-    const image_url = req.file ? `/uploads/${req.file.filename}` : existing.image_url;
+    let image_url = existing.image_url;
+
+    if (req.file) {
+      try {
+        image_url = await uploadToSupabase(req.file.buffer, req.file.originalname, req.file.mimetype);
+      } catch (uploadError) {
+        console.error('Supabase upload failed, falling back to local storage:', uploadError.message);
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(req.file.originalname);
+        fs.writeFileSync(path.join(uploadsDir, uniqueName), req.file.buffer);
+        image_url = `/uploads/${uniqueName}`;
+      }
+    }
 
     const updated = await db.query_one(
       `UPDATE clients SET name=$1,school=$2,contact=$3,email=$4,description=$5,image_url=$6
@@ -105,7 +123,7 @@ router.delete('/:id', async (req, res) => {
     // ON DELETE CASCADE handles orders + order_items automatically
     await db.query_rows('DELETE FROM clients WHERE id = $1', [req.params.id]);
 
-    if (existing.image_url) {
+    if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
       const imgPath = path.join(__dirname, '..', existing.image_url);
       if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
     }
@@ -129,7 +147,15 @@ router.post('/:id/photos', upload.single('photo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Photo is required' });
     const { caption } = req.body;
-    const image_url = `/uploads/${req.file.filename}`;
+    let image_url;
+    try {
+      image_url = await uploadToSupabase(req.file.buffer, req.file.originalname, req.file.mimetype);
+    } catch (uploadError) {
+      console.error('Supabase upload failed, falling back to local storage:', uploadError.message);
+      const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(req.file.originalname);
+      fs.writeFileSync(path.join(uploadsDir, uniqueName), req.file.buffer);
+      image_url = `/uploads/${uniqueName}`;
+    }
     const photo = await db.query_one(
       `INSERT INTO client_uniform_photos (client_id, image_url, caption)
        VALUES ($1, $2, $3) RETURNING *`,
@@ -148,8 +174,10 @@ router.delete('/:id/photos/:photoId', async (req, res) => {
     );
     if (!photo) return res.status(404).json({ error: 'Photo not found' });
     await db.query_rows('DELETE FROM client_uniform_photos WHERE id = $1', [req.params.photoId]);
-    const imgPath = path.join(__dirname, '..', photo.image_url);
-    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    if (photo.image_url && photo.image_url.startsWith('/uploads/')) {
+      const imgPath = path.join(__dirname, '..', photo.image_url);
+      if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    }
     res.json({ message: 'Photo deleted' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

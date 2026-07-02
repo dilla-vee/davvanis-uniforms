@@ -8,6 +8,16 @@ export const API_BASE_URL = Capacitor.isNativePlatform()
 // Helper to resolve API paths
 export const apiFetch = (path, options = {}) => {
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  
+  // Inject JWT token if session exists
+  const token = localStorage.getItem('unistore_token');
+  if (token) {
+    options.headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`
+    };
+  }
+  
   return fetch(url, options);
 };
 

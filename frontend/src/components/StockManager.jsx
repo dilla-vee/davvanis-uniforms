@@ -1,7 +1,56 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../utils/api';
+import { Html5Qrcode } from 'html5-qrcode';
 
-const CATEGORIES = ['Tops', 'Bottoms', 'Sports', 'Outerwear', 'Accessories', 'Other'];
+const CATEGORIES = ['Sweaters', 'Tops', 'Bottoms', 'Sports', 'Outerwear', 'Accessories', 'Other'];
+const SWEATER_STYLES = [
+  'Sweater: Navy Plain',
+  'Sweater: Navy with White stripes',
+  'Sweater: Navy with Sky Blue stripes',
+  'Sweater: Navy with Red stripes',
+  'Sweater: Navy with Yellow stripes',
+  'Sweater: Red Plain',
+  'Sweater: Red with White stripes',
+  'Sweater: Maroon Plain',
+  'Sweater: Maroon with White stripes',
+  'Sweater: Green Plain',
+  'Sweater: Green with White stripes',
+  'Sweater: Green with Yellow stripes',
+  'Sweater: Green with Safaricom stripes',
+  'Sweater: Green with Red stripes',
+  'Sweater: Royal Blue Plain',
+  'Sweater: Royal Blue with White stripes',
+  'Sweater: Royal Blue with Yellow stripes',
+  'Sweater: Sky Blue Plain',
+  'Sweater: Sky Blue with White stripes',
+  'Sweater: Black Plain',
+  'Sweater: Black with White stripes',
+  'Sweater: Grey (Ash) Plain',
+  'Sweater: Grey (Ash) with Red stripes',
+  'Sweater: Grey (Ash) with Blue stripes',
+  'Sweater: Grey (Ash) with Green stripes',
+  'Sweater: Grey (Dark) Plain',
+  'Sweater: Grey (Dark) with White stripes',
+  'Sweater: White Plain',
+  'Sweater: White with Navy stripes',
+  'Sweater: White with Red stripes',
+  'Sweater: Brown Plain',
+  'Sweater: Brown with Yellow stripes',
+  'Sweater: Gold/Yellow Plain',
+  'Sweater: Gold/Yellow with Green stripes',
+  'Sweater: Orange Plain',
+  'Sweater: Orange with Black stripes',
+  'Sweater: Purple Plain',
+  'Sweater: Purple with White stripes',
+  'Sweater: Pink Plain',
+  'Sweater: Strathmore White',
+  'Sweater: Strathmore Blue',
+  'Sweater: Strathmore Navy',
+  'Sweater: Strathmore Red',
+  'Sweater: Beige Plain',
+  'Sweater: Beige with Chocolate stripes',
+  'Sweater: Navy with Safaricom stripes'
+];
 const KSH = 'Ksh ';
 
 function Modal({ title, onClose, children, wide }) {
@@ -27,6 +76,145 @@ function Modal({ title, onClose, children, wide }) {
   );
 }
 
+// Camera Scanner Modal
+function CameraScannerModal({ onClose, onScan }) {
+  const [scanError, setScanError] = useState('');
+  useEffect(() => {
+    let html5Qrcode;
+    const elementId = 'scanner-view';
+    
+    const startScanner = async () => {
+      try {
+        html5Qrcode = new Html5Qrcode(elementId);
+        await html5Qrcode.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }
+          },
+          (decodedText) => {
+            onScan(decodedText);
+            stopScanner();
+          },
+          () => {} // ignore error logs
+        );
+      } catch (err) {
+        setScanError('Failed to access camera: ' + err.message);
+      }
+    };
+    
+    const stopScanner = async () => {
+      try {
+        if (html5Qrcode && html5Qrcode.isScanning) {
+          await html5Qrcode.stop();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      onClose();
+    };
+
+    const timer = setTimeout(startScanner, 200);
+
+    return () => {
+      clearTimeout(timer);
+      if (html5Qrcode && html5Qrcode.isScanning) {
+        html5Qrcode.stop().catch(console.error);
+      }
+    };
+  }, [onClose, onScan]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
+      <div className="bg-white dark:bg-zinc-900 rounded-xl p-5 max-w-md w-full flex flex-col space-y-4 shadow-xl border border-zinc-200 dark:border-zinc-800" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center">
+          <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Camera Barcode Scanner</h3>
+          <button onClick={onClose} className="text-lg leading-none text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">✕</button>
+        </div>
+        
+        {scanError ? (
+          <p className="text-sm p-3 bg-red-100 text-red-800 rounded">{scanError}</p>
+        ) : (
+          <div className="relative aspect-square w-full bg-black rounded-lg overflow-hidden border border-zinc-700">
+            <div id="scanner-view" className="w-full h-full"></div>
+            <div className="absolute inset-0 border-2 border-dashed border-indigo-500 rounded-lg pointer-events-none m-12 opacity-60"></div>
+          </div>
+        )}
+        
+        <p className="text-xs text-center text-zinc-500">Align a barcode or QR code inside the viewfinder to scan.</p>
+        <button onClick={onClose} className="btn-secondary w-full">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// Tag Print Modal
+function TagPrintModal({ item, onClose }) {
+  const qrUrl = item.barcode 
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.barcode)}`
+    : `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.name + '-' + (item.size || ''))}`;
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print Tag - ${item.name}</title>
+          <style>
+            body { font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .tag { border: 2px solid #000; padding: 20px; width: 280px; text-align: center; border-radius: 10px; background-color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+            .brand { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; color: #4338ca; margin-bottom: 5px; }
+            .title { font-size: 18px; font-weight: 800; margin: 5px 0; color: #111; }
+            .details { font-size: 12px; color: #666; margin-bottom: 15px; }
+            .qr { margin: 15px 0; }
+            .price { font-size: 20px; font-weight: bold; color: #111; margin-top: 10px; }
+            .barcode-text { font-family: monospace; font-size: 12px; color: #333; margin-top: 5px; letter-spacing: 0.05em; }
+          </style>
+        </head>
+        <body>
+          <div class="tag">
+            <div class="brand">👔 Davvanis Uniforms</div>
+            <div class="title">${item.name}</div>
+            <div class="details">${item.size ? 'Size: ' + item.size : 'One Size'} • ${item.category || 'Garment'}</div>
+            <div class="qr"><img src="${qrUrl}" width="150" height="150" alt="QR Code" /></div>
+            <div class="barcode-text">${item.barcode || 'NO-BARCODE'}</div>
+            <div class="price">${item.price != null ? 'Ksh ' + Number(item.price).toFixed(2) : '—'}</div>
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  return (
+    <Modal title="Garment Tag Print Preview" onClose={onClose}>
+      <div className="flex flex-col items-center space-y-5 py-4">
+        <div id="tag-print-area" className="border-2 border-zinc-300 dark:border-zinc-700 p-5 w-72 text-center rounded-xl bg-white dark:bg-zinc-950 shadow-md">
+          <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-1">👔 Davvanis Uniforms</div>
+          <h4 className="text-lg font-extrabold text-zinc-900 dark:text-white leading-tight">{item.name}</h4>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{item.size ? `Size: ${item.size}` : 'One Size'} • {item.category || 'Garment'}</p>
+          <div className="my-4 flex justify-center">
+            <img src={qrUrl} width="140" height="140" alt="QR Code" className="border p-1 bg-white" />
+          </div>
+          <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300 tracking-wider mb-2">{item.barcode || 'No Barcode Assigned'}</p>
+          <div className="text-xl font-bold text-zinc-900 dark:text-white">{item.price != null ? 'Ksh ' + Number(item.price).toFixed(2) : '—'}</div>
+        </div>
+
+        <div className="flex gap-3 w-full max-w-xs">
+          <button onClick={handlePrint} className="btn-primary flex-1">Print Tag</button>
+          <button onClick={onClose} className="btn-secondary flex-1">Close</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // Daily Sales Modal
 function DailySalesModal({ stock, onClose, onSaved }) {
   const today = new Date().toISOString().split('T')[0];
@@ -36,6 +224,16 @@ function DailySalesModal({ stock, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
+
+  // Scanner integrations
+  const [scanInput, setScanInput] = useState('');
+  const [scanError, setScanError] = useState('');
+  const [showCamera, setShowCamera] = useState(false);
+  const scanInputRef = useRef(null);
+
+  useEffect(() => {
+    if (scanInputRef.current) scanInputRef.current.focus();
+  }, []);
 
   const addRow = () => setItems(i => [...i, { stock_id: '', qty_sold: '1', unit_price: '' }]);
   const removeRow = idx => setItems(i => i.filter((_, n) => n !== idx));
@@ -48,6 +246,50 @@ function DailySalesModal({ stock, onClose, onSaved }) {
     }
     return next;
   });
+
+  const handleScan = async (barcode) => {
+    setScanError('');
+    if (!barcode.trim()) return;
+    try {
+      const res = await apiFetch(`/api/stock/by-barcode/${encodeURIComponent(barcode.trim())}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Barcode not found in stock');
+
+      const targetId = String(data.id);
+      const existingIdx = items.findIndex(item => String(item.stock_id) === targetId);
+
+      if (existingIdx !== -1) {
+        const currentQty = parseInt(items[existingIdx].qty_sold) || 0;
+        if (currentQty < data.quantity) {
+          updateRow(existingIdx, 'qty_sold', String(currentQty + 1));
+        } else {
+          setScanError(`Cannot add more "${data.name}" — only ${data.quantity} in stock.`);
+        }
+      } else {
+        if (items.length === 1 && !items[0].stock_id) {
+          updateRow(0, 'stock_id', targetId);
+        } else {
+          setItems(prev => [...prev, {
+            stock_id: targetId,
+            qty_sold: '1',
+            unit_price: data.price != null ? String(data.price) : ''
+          }]);
+        }
+      }
+      setScanInput('');
+      if (scanInputRef.current) scanInputRef.current.focus();
+    } catch (e) {
+      setScanError(e.message || 'Product not found');
+    }
+  };
+
+  const handleScanInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleScan(scanInput);
+    }
+  };
+
   const total = items.reduce((s, i) => s + (parseFloat(i.unit_price) || 0) * (parseInt(i.qty_sold) || 0), 0);
 
   const handleSubmit = async e => {
@@ -73,30 +315,201 @@ function DailySalesModal({ stock, onClose, onSaved }) {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Failed');
-      setSuccess({ total: data.sale.total_value, count: items.length });
+      setSuccess({ sale: data.sale, items: [...items] });
       onSaved(data.updatedStock);
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   };
 
-  if (success) return (
-    <div className="text-center py-6 space-y-4">
-      <div style={{ fontSize: '52px' }}>✅</div>
-      <h3 className="text-lg font-bold text-theme-primary">Sales Recorded!</h3>
-      <p className="text-theme-secondary text-sm">
-        {success.count} item{success.count !== 1 ? 's' : ''} sold —
-        <span className="font-semibold text-theme-primary"> {KSH}{Number(success.total).toFixed(2)}</span>
-      </p>
-      <p className="text-xs text-theme-muted">Stock quantities updated automatically.</p>
-      <div className="flex gap-3 justify-center pt-2">
-        <button onClick={() => { setSuccess(null); setItems([{ stock_id:'', qty_sold:'1', unit_price:'' }]); setNotes(''); }} className="btn-secondary">Record More</button>
-        <button onClick={onClose} className="btn-primary">Done</button>
+  if (success) {
+    const saleId = success.sale.id;
+    const saleDate = new Date(success.sale.created_at || new Date()).toLocaleString('en-KE');
+    const receiptItems = success.items.map(item => {
+      const s = stock.find(st => String(st.id) === String(item.stock_id));
+      return {
+        name: s ? s.name : 'Unknown Item',
+        size: s ? s.size : '',
+        qty: parseInt(item.qty_sold) || 0,
+        price: parseFloat(item.unit_price) || 0,
+        subtotal: (parseFloat(item.unit_price) || 0) * (parseInt(item.qty_sold) || 0)
+      };
+    });
+
+    const totalVal = success.sale.total_value != null ? parseFloat(success.sale.total_value) : 0;
+
+    const getWhatsAppUrl = () => {
+      let text = `Hello! Thank you for purchasing from *Davvanis Uniforms*.\n\n`;
+      text += `*Receipt No:* #${saleId}\n`;
+      text += `*Date:* ${new Date(success.sale.created_at || new Date()).toLocaleDateString('en-KE')}\n`;
+      text += `*Payment Status:* PAID ✅\n\n`;
+      text += `*Items Purchased:*\n`;
+      receiptItems.forEach(item => {
+        text += `- ${item.name} ${item.size ? `(${item.size})` : ''} x ${item.qty} @ Ksh ${item.price.toFixed(2)}: *Ksh ${item.subtotal.toFixed(2)}*\n`;
+      });
+      text += `\n*TOTAL PAID:* *Ksh ${totalVal.toFixed(2)}*\n\n`;
+      text += `We appreciate your business! If you have any questions, feel free to reach out.`;
+      return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    };
+
+    const handlePrintReceipt = () => {
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Receipt #${saleId}</title>
+            <style>
+              body { font-family: 'Courier New', monospace; padding: 15px; width: 300px; font-size: 13px; color: #000; }
+              .center { text-align: center; }
+              .divider { border-top: 1px dashed #000; margin: 10px 0; }
+              .bold { font-weight: bold; }
+              table { width: 100%; border-collapse: collapse; }
+              td { padding: 3px 0; }
+              .right { text-align: right; }
+              .header { font-size: 15px; font-weight: bold; }
+              .footer { font-size: 11px; margin-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="center bold header">DAVVANIS UNIFORMS</div>
+            <div class="center">Workshop & Retail Shop</div>
+            <div class="center">Tel: 0712 345678</div>
+            <div class="divider"></div>
+            <div>Receipt No: #${saleId}</div>
+            <div>Date: ${saleDate}</div>
+            <div>Status: PAID</div>
+            <div class="divider"></div>
+            <table>
+              <thead>
+                <tr class="bold">
+                  <td style="width: 50%;">Item</td>
+                  <td class="right" style="width: 20%;">Qty</td>
+                  <td class="right" style="width: 30%;">Price</td>
+                </tr>
+              </thead>
+              <tbody>
+                ${receiptItems.map(item => `
+                  <tr>
+                    <td>${item.name} ${item.size ? `(${item.size})` : ''}</td>
+                    <td class="right">${item.qty}</td>
+                    <td class="right">Ksh ${item.subtotal.toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="divider"></div>
+            <table class="bold">
+              <tr>
+                <td>TOTAL</td>
+                <td class="right">Ksh ${totalVal.toFixed(2)}</td>
+              </tr>
+            </table>
+            <div class="divider"></div>
+            <div class="center footer">
+              Thank you for shopping with us!<br>
+              Goods once sold cannot be returned.<br>
+              Powered by UniStore.
+            </div>
+            <script>
+              window.onload = function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="text-center py-2 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 rounded-lg border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center gap-2">
+          <span className="text-xl">✅</span>
+          <span className="font-semibold text-sm">Sale Authorized & Recorded Successfully</span>
+        </div>
+
+        {/* Receipt Mockup Preview */}
+        <div className="border border-zinc-200 dark:border-zinc-800 p-4 rounded-lg bg-zinc-50 dark:bg-zinc-950 font-mono text-xs text-theme-primary space-y-3 shadow-inner">
+          <div className="text-center space-y-0.5">
+            <h4 className="font-bold text-sm tracking-wide">DAVVANIS UNIFORMS</h4>
+            <p className="text-[10px] text-theme-muted">Workshop & Retail Outlet</p>
+          </div>
+          <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 pt-2 space-y-0.5 text-[10px] text-theme-secondary">
+            <div className="flex justify-between"><span>Receipt No:</span><span className="font-bold">#{saleId}</span></div>
+            <div className="flex justify-between"><span>Date:</span><span>{saleDate}</span></div>
+            <div className="flex justify-between"><span>Status:</span><span className="font-bold text-emerald-600">PAID</span></div>
+          </div>
+          <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 my-2"></div>
+          <div className="space-y-1">
+            {receiptItems.map((item, idx) => (
+              <div key={idx} className="flex justify-between">
+                <span>{item.name} {item.size ? `(${item.size})` : ''} x{item.qty}</span>
+                <span>{KSH}{item.subtotal.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 pt-2 flex justify-between font-bold text-sm">
+            <span>TOTAL PAID</span>
+            <span>{KSH}{totalVal.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 flex-wrap pt-2">
+          <button type="button" onClick={handlePrintReceipt} className="btn-primary flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs">
+            🖨️ Print Receipt / PDF
+          </button>
+          <a
+            href={getWhatsAppUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-lg text-white bg-green-600 hover:bg-green-700 text-center"
+          >
+            💬 Share via WhatsApp
+          </a>
+        </div>
+        
+        <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+          <button type="button" onClick={() => { setSuccess(null); setItems([{ stock_id:'', qty_sold:'1', unit_price:'' }]); setNotes(''); setScanInput(''); setScanError(''); }} className="btn-secondary flex-1">Record Another Sale</button>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Close</button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && <p className="text-sm p-2 rounded" style={{ background:'#fee2e2', color:'#991b1b' }}>{error}</p>}
+      
+      {/* QR/Barcode Scanner Section */}
+      <div className="p-3.5 rounded-lg border border-indigo-100 dark:border-zinc-800" style={{ backgroundColor: 'rgba(99,102,241,0.04)' }}>
+        <label className="label text-indigo-700 dark:text-indigo-400 font-semibold mb-1">Scan QR / Barcode Checkout</label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              ref={scanInputRef}
+              type="text"
+              className="input pr-8"
+              placeholder="Scan item tag or type SKU & hit Enter..."
+              value={scanInput}
+              onChange={e => setScanInput(e.target.value)}
+              onKeyDown={handleScanInputKeyDown}
+            />
+            {scanInput && (
+              <button type="button" onClick={() => setScanInput('')} className="absolute right-2.5 top-2 text-zinc-400 hover:text-zinc-600">✕</button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCamera(true)}
+            className="px-3 rounded-lg border border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-600 dark:bg-zinc-950 dark:border-zinc-800 dark:text-indigo-400 flex items-center justify-center text-sm"
+            title="Scan with Camera"
+          >
+            📷 Camera Scan
+          </button>
+        </div>
+        {scanError && <p className="text-xs text-red-600 mt-1 font-semibold">⚠️ {scanError}</p>}
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Sale Date</label>
@@ -122,8 +535,8 @@ function DailySalesModal({ stock, onClose, onSaved }) {
                   {idx === 0 && <p className="text-xs text-theme-muted mb-1">Stock Item</p>}
                   <select className="input text-sm" value={item.stock_id} onChange={e => updateRow(idx,'stock_id',e.target.value)}>
                     <option value="">Select...</option>
-                    {stock.map(s => (
-                      <option key={s.id} value={s.id} disabled={s.quantity === 0}>
+                    {stock.filter(s => (s.quantity || 0) > 0).map(s => (
+                      <option key={s.id} value={s.id}>
                         {s.name}{s.size ? ` (${s.size})` : ''} — {s.quantity} left
                       </option>
                     ))}
@@ -160,6 +573,13 @@ function DailySalesModal({ stock, onClose, onSaved }) {
         </button>
         <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
       </div>
+
+      {showCamera && (
+        <CameraScannerModal
+          onClose={() => setShowCamera(false)}
+          onScan={handleScan}
+        />
+      )}
     </form>
   );
 }
@@ -234,7 +654,7 @@ function SalesHistoryModal({ onClose }) {
 }
 
 // Main StockManager component
-export default function StockManager() {
+export default function StockManager({ user }) {
   const [stock, setStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -243,35 +663,115 @@ export default function StockManager() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [editingQty, setEditingQty] = useState(null);
   const [qtyValue, setQtyValue] = useState('');
+  const [editingWorkshopQty, setEditingWorkshopQty] = useState(null);
+  const [workshopQtyValue, setWorkshopQtyValue] = useState('');
   const qtyRef = useRef(null);
-  const [form, setForm] = useState({ name:'', category:'', size:'', quantity:'', price:'', low_stock_threshold:'10' });
+  const [form, setForm] = useState({ name:'', category:'', size:'', quantity:'', price:'', low_stock_threshold:'10', barcode:'', workshop_quantity:'0', source_type:'purchased' });
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [showSales, setShowSales] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [printTagItem, setPrintTagItem] = useState(null);
+  const [sweatersExpanded, setSweatersExpanded] = useState(false);
+  const [expandedStyles, setExpandedStyles] = useState({});
+  const [showZeroStock, setShowZeroStock] = useState(false);
+  const [showProductionModal, setShowProductionModal] = useState(false);
+  const [prodSearch, setProdSearch] = useState('');
+  const [selectedProdStyle, setSelectedProdStyle] = useState(null);
+  const [prodQuantities, setProdQuantities] = useState({});
 
   const fetchStock = async () => {
     try { setLoading(true); const r = await apiFetch('/api/stock'); setStock(await r.json()); }
     catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { fetchStock(); }, []);
-  useEffect(() => { if (editingQty && qtyRef.current) qtyRef.current.focus(); }, [editingQty]);
+  useEffect(() => { if ((editingQty || editingWorkshopQty) && qtyRef.current) qtyRef.current.focus(); }, [editingQty, editingWorkshopQty]);
 
-  const openAdd = () => { setEditItem(null); setForm({ name:'', category:'', size:'', quantity:'', price:'', low_stock_threshold:'10' }); setFormError(''); setShowModal(true); };
-  const openEdit = item => { setEditItem(item); setForm({ name:item.name||'', category:item.category||'', size:item.size||'', quantity:item.quantity!=null?String(item.quantity):'', price:item.price!=null?String(item.price):'', low_stock_threshold:item.low_stock_threshold!=null?String(item.low_stock_threshold):'10' }); setFormError(''); setShowModal(true); };
+  const openAdd = () => { setEditItem(null); setForm({ name:'', category:'', size:'', quantity:user?.role === 'workshop' ? '0' : '', price:'', low_stock_threshold:'10', barcode:'', workshop_quantity:'0', source_type:user?.role === 'workshop' ? 'manufactured' : 'purchased' }); setFormError(''); setShowModal(true); };
+  const openEdit = item => { setEditItem(item); setForm({ name:item.name||'', category:item.category||'', size:item.size||'', quantity:item.quantity!=null?String(item.quantity):'', price:item.price!=null?String(item.price):'', low_stock_threshold:item.low_stock_threshold!=null?String(item.low_stock_threshold):'10', barcode:item.barcode||'', workshop_quantity:item.workshop_quantity!=null?String(item.workshop_quantity):'0', source_type:item.source_type||'purchased' }); setFormError(''); setShowModal(true); };
 
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.name.trim()) { setFormError('Name is required'); return; }
     setSaving(true);
     try {
+      if (!editItem && form.category === 'Sweaters') {
+        const existing = stock.find(s => 
+          s.category === 'Sweaters' && 
+          s.name.toLowerCase() === form.name.toLowerCase() && 
+          String(s.size) === String(form.size)
+        );
+        if (existing) {
+          const qtyToAdd = form.quantity !== '' ? parseInt(form.quantity) : 0;
+          const workshopQtyToAdd = form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0;
+          const newQty = (existing.quantity || 0) + qtyToAdd;
+          const newWorkshopQty = (existing.workshop_quantity || 0) + workshopQtyToAdd;
+          
+          const r = await apiFetch(`/api/stock/${existing.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              quantity: newQty,
+              workshop_quantity: newWorkshopQty,
+              price: form.price !== '' ? parseFloat(form.price) : existing.price
+            })
+          });
+          if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to update existing item'); }
+          await fetchStock();
+          setShowModal(false);
+          return;
+        }
+      }
+
       const r = await apiFetch(editItem?`/api/stock/${editItem.id}`:'/api/stock', {
         method: editItem?'PUT':'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ ...form, quantity:form.quantity!==''?parseInt(form.quantity):0, price:form.price!==''?parseFloat(form.price):null, low_stock_threshold:form.low_stock_threshold!==''?parseInt(form.low_stock_threshold):10 }),
+        body: JSON.stringify({ 
+          ...form, 
+          quantity:form.quantity!==''?parseInt(form.quantity):0, 
+          price:form.price!==''?parseFloat(form.price):null, 
+          low_stock_threshold:form.low_stock_threshold!==''?parseInt(form.low_stock_threshold):10,
+          barcode:form.barcode.trim()||null,
+          workshop_quantity:form.workshop_quantity!==''?parseInt(form.workshop_quantity):0,
+          source_type:form.source_type
+        }),
       });
       if (!r.ok) { const d=await r.json(); throw new Error(d.error||'Failed'); }
       await fetchStock(); setShowModal(false);
     } catch (e) { setFormError(e.message); } finally { setSaving(false); }
+  };
+
+  const handleLogProductionSubmit = async (e, styleStockItems) => {
+    e.preventDefault();
+    setSaving(true);
+    setFormError('');
+    try {
+      const updates = [];
+      for (const [size, qtyStr] of Object.entries(prodQuantities)) {
+        const qtyToAdd = parseInt(qtyStr);
+        if (!isNaN(qtyToAdd) && qtyToAdd > 0) {
+          const item = styleStockItems.find(s => s.size === size);
+          if (item) {
+            const newQty = (item.workshop_quantity || 0) + qtyToAdd;
+            updates.push(
+              apiFetch(`/api/stock/${item.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workshop_quantity: newQty })
+              })
+            );
+          }
+        }
+      }
+      if (updates.length > 0) {
+        await Promise.all(updates);
+        await fetchStock();
+      }
+      setShowProductionModal(false);
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async id => {
@@ -288,11 +788,55 @@ export default function StockManager() {
     setEditingQty(null);
   };
 
+  const saveWorkshopQty = async item => {
+    const qty = parseInt(workshopQtyValue);
+    if (!isNaN(qty) && qty >= 0) {
+      await apiFetch(`/api/stock/${item.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ workshop_quantity:qty }) });
+      await fetchStock();
+    }
+    setEditingWorkshopQty(null);
+  };
+
   const qtyStyle = item => {
     if (item.quantity <= item.low_stock_threshold) return { color:'#ef4444', fontWeight:'bold' };
     if (item.quantity <= item.low_stock_threshold*2) return { color:'#f59e0b', fontWeight:'600' };
     return { color:'#22c55e', fontWeight:'600' };
   };
+
+  const handlePrintTag = item => {
+    setPrintTagItem(item);
+  };
+
+  const displayStock = (user?.role === 'workshop'
+    ? stock.filter(item => item.source_type === 'manufactured')
+    : stock
+  ).filter(item => {
+    if (showZeroStock) return true;
+    return (item.quantity || 0) > 0 || (item.workshop_quantity || 0) > 0;
+  });
+
+  const sweaters = displayStock.filter(item => item.category === 'Sweaters');
+  const nonSweaters = displayStock.filter(item => item.category !== 'Sweaters');
+  const totalSweaterShopQty = sweaters.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const totalSweaterWorkshopQty = sweaters.reduce((sum, item) => sum + (item.workshop_quantity || 0), 0);
+
+  // Group sweaters by style name
+  const sweatersGroupedByStyle = {};
+  sweaters.forEach(item => {
+    if (!sweatersGroupedByStyle[item.name]) {
+      sweatersGroupedByStyle[item.name] = [];
+    }
+    sweatersGroupedByStyle[item.name].push(item);
+  });
+
+  // Group non-sweaters by style name
+  const nonSweatersGroupedByStyle = {};
+  nonSweaters.forEach(item => {
+    if (!nonSweatersGroupedByStyle[item.name]) {
+      nonSweatersGroupedByStyle[item.name] = [];
+    }
+    nonSweatersGroupedByStyle[item.name].push(item);
+  });
 
   if (error) return <div className="rounded-lg p-4" style={{ background:'#fee2e2', color:'#991b1b' }}>{error}</div>;
 
@@ -301,13 +845,33 @@ export default function StockManager() {
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-theme-primary">Stock Manager</h2>
-          <p className="text-sm mt-1 text-theme-secondary">{stock.length} items in inventory</p>
+          <h2 className="text-2xl font-bold text-theme-primary">
+            {user?.role === 'workshop' ? 'Workshop Stock Control' : 'Stock Manager'}
+          </h2>
+          <p className="text-sm mt-1 text-theme-secondary">{displayStock.length} items in inventory</p>
+          <label className="flex items-center gap-2 text-xs text-theme-secondary cursor-pointer mt-1.5">
+            <input
+              type="checkbox"
+              checked={showZeroStock}
+              onChange={e => setShowZeroStock(e.target.checked)}
+              className="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+            />
+            <span>Show items with zero stock</span>
+          </label>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={() => setShowHistory(true)} className="btn-secondary text-sm">📋 Sales History</button>
-          <button onClick={() => setShowSales(true)} className="btn-primary text-sm">💰 Record Daily Sales</button>
-          <button onClick={openAdd} className="btn-primary">+ Add Stock</button>
+        <div className="flex gap-2 flex-wrap items-center">
+          {user?.role !== 'workshop' && (
+            <>
+              <button onClick={() => setShowHistory(true)} className="btn-secondary text-sm">📋 Sales History</button>
+              <button onClick={() => setShowSales(true)} className="btn-primary text-sm">💰 Record Daily Sales</button>
+            </>
+          )}
+          {(user?.role === 'admin' || user?.role === 'workshop') && (
+            <>
+              <button onClick={() => { setProdSearch(''); setSelectedProdStyle(null); setProdQuantities({}); setFormError(''); setShowProductionModal(true); }} className="btn-secondary text-sm">🧶 Log Production</button>
+              <button onClick={openAdd} className="btn-primary text-sm">+ Add Stock</button>
+            </>
+          )}
         </div>
       </div>
 
@@ -315,70 +879,464 @@ export default function StockManager() {
       <div className="card overflow-hidden">
         {loading ? (
           <div className="p-6 space-y-3">{[1,2,3,4,5].map(i=><div key={i} className="h-10 rounded animate-pulse" style={{ backgroundColor:'var(--bg-muted)' }} />)}</div>
-        ) : stock.length === 0 ? (
-          <div className="text-center py-16 text-theme-secondary"><span className="text-5xl">📦</span><p className="mt-3">No stock items yet.</p></div>
+        ) : displayStock.length === 0 ? (
+          <div className="text-center py-16 text-theme-secondary"><span className="text-5xl">📦</span><p className="mt-3">No stock items found.</p></div>
         ) : (
           <>
             {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead style={{ backgroundColor:'var(--bg-muted)', borderBottom:'1px solid var(--border)' }}>
-                  <tr>{['Name','Category','Size','Quantity','Price','Min Stock','Actions'].map(h=>(
+                  <tr>{['Name','Category','Size','Source','Shop Qty','Workshop Qty','Price','Barcode','Actions'].map(h=>(
                     <th key={h} className="text-left py-3 px-4 text-xs uppercase tracking-wide text-theme-secondary font-medium">{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody>
-                  {stock.map(item=>(
-                    <tr key={item.id} className="hover-theme" style={{ borderBottom:'1px solid var(--border-light)' }}>
-                      <td className="py-3 px-4 font-medium text-theme-primary">{item.name}</td>
-                      <td className="py-3 px-4 text-theme-secondary">{item.category||'--'}</td>
-                      <td className="py-3 px-4 text-theme-secondary">{item.size||'--'}</td>
-                      <td className="py-3 px-4">
-                        {editingQty===item.id
-                          ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
-                          : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>
-                        }
-                      </td>
-                      <td className="py-3 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
-                      <td className="py-3 px-4 text-theme-secondary">{item.low_stock_threshold}</td>
-                      <td className="py-3 px-4">
-                        <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
-                        <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium" style={{ color:'#ef4444' }}>Delete</button>
-                      </td>
-                    </tr>
-                  ))}
+                  {Object.keys(nonSweatersGroupedByStyle).map(styleName => {
+                    const styleItems = nonSweatersGroupedByStyle[styleName];
+                    if (styleItems.length === 1) {
+                      const item = styleItems[0];
+                      return (
+                        <tr key={item.id} className="hover-theme" style={{ borderBottom:'1px solid var(--border-light)' }}>
+                          <td className="py-3 px-4 font-medium text-theme-primary">{item.name}</td>
+                          <td className="py-3 px-4 text-theme-secondary">{item.category||'--'}</td>
+                          <td className="py-3 px-4 text-theme-secondary">{item.size||'--'}</td>
+                          <td className="py-3 px-4 text-theme-secondary capitalize">{item.source_type}</td>
+                          <td className="py-3 px-4">
+                            {user?.role !== 'workshop' && item.source_type === 'purchased' ? (
+                              editingQty === item.id
+                                ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
+                                : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>
+                            ) : (
+                              <span style={qtyStyle(item)}>{item.quantity}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-theme-secondary">
+                            {item.source_type === 'manufactured' ? (
+                              (user?.role === 'workshop' || user?.role === 'admin') ? (
+                                editingWorkshopQty === item.id
+                                  ? <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);if(e.key==='Escape')setEditingWorkshopQty(null);}} className="input w-20" />
+                                  : <button onClick={()=>{setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}} className="hover:underline font-semibold text-theme-primary">{item.workshop_quantity}</button>
+                              ) : (
+                                <span className="font-semibold text-theme-primary">{item.workshop_quantity}</span>
+                              )
+                            ) : '—'}
+                          </td>
+                          <td className="py-3 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
+                          <td className="py-3 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
+                          <td className="py-3 px-4">
+                            {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
+                              <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
+                            )}
+                            {user?.role === 'admin' && (
+                              <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium mr-3" style={{ color:'#ef4444' }}>Delete</button>
+                            )}
+                            <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    // Render group with expander
+                    const totalShopQty = styleItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+                    const totalWorkshopQty = styleItems.reduce((sum, item) => sum + (item.workshop_quantity || 0), 0);
+                    const firstItem = styleItems[0];
+                    const isExpanded = !!expandedStyles[styleName];
+
+                    return (
+                      <React.Fragment key={styleName}>
+                        <tr className="bg-indigo-50/10 dark:bg-indigo-950/10 hover-theme" style={{ borderBottom:'1px solid var(--border)' }}>
+                          <td className="py-3 px-4 flex items-center gap-2 font-semibold text-theme-primary">
+                            <button
+                              onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
+                              className="text-indigo-600 dark:text-indigo-400 font-bold text-xs w-6 h-6 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded"
+                              type="button"
+                            >
+                              {isExpanded ? '▼' : '▶'}
+                            </button>
+                            <span>{styleName} ({styleItems.length} sizes)</span>
+                          </td>
+                          <td className="py-3 px-4 text-theme-secondary">{firstItem.category}</td>
+                          <td className="py-3 px-4 text-theme-secondary font-medium">Mixed</td>
+                          <td className="py-3 px-4 text-theme-secondary capitalize">{firstItem.source_type}</td>
+                          <td className="py-3 px-4 text-indigo-600 font-bold">{totalShopQty}</td>
+                          <td className="py-3 px-4 text-indigo-600 font-bold">{totalWorkshopQty}</td>
+                          <td className="py-3 px-4 text-theme-secondary">—</td>
+                          <td className="py-3 px-4 text-theme-secondary">—</td>
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
+                              className="text-xs font-semibold text-indigo-600 hover:underline"
+                            >
+                              {isExpanded ? 'Collapse' : 'Expand'}
+                            </button>
+                          </td>
+                        </tr>
+
+                        {isExpanded && styleItems.map(item => (
+                          <tr key={item.id} className="hover-theme" style={{ borderBottom:'1px solid var(--border-light)', backgroundColor:'rgba(99,102,241,0.02)' }}>
+                            <td className="py-2.5 px-4 pl-12 text-theme-secondary font-medium">Size {item.size || '--'}</td>
+                            <td className="py-2.5 px-4 text-theme-muted">{item.category}</td>
+                            <td className="py-2.5 px-4 text-theme-secondary">{item.size || '--'}</td>
+                            <td className="py-2.5 px-4 text-theme-secondary capitalize">{item.source_type}</td>
+                            <td className="py-2.5 px-4">
+                              {user?.role !== 'workshop' && item.source_type === 'purchased' ? (
+                                editingQty === item.id
+                                  ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
+                                  : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>
+                              ) : (
+                                <span style={qtyStyle(item)}>{item.quantity}</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-4 text-theme-secondary">
+                              {item.source_type === 'manufactured' ? (
+                                (user?.role === 'workshop' || user?.role === 'admin') ? (
+                                  editingWorkshopQty === item.id
+                                    ? <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);if(e.key==='Escape')setEditingWorkshopQty(null);}} className="input w-20" />
+                                    : <button onClick={()=>{setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}} className="hover:underline font-semibold text-theme-primary">{item.workshop_quantity}</button>
+                                ) : (
+                                  <span className="font-semibold text-theme-primary">{item.workshop_quantity}</span>
+                                )
+                              ) : '—'}
+                            </td>
+                            <td className="py-2.5 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
+                            <td className="py-2.5 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
+                            <td className="py-2.5 px-4">
+                              {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
+                                <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
+                              )}
+                              {user?.role === 'admin' && (
+                                <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium mr-3" style={{ color:'#ef4444' }}>Delete</button>
+                              )}
+                              <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {sweaters.length > 0 && (
+                    <>
+                      <tr className="bg-indigo-50/20 dark:bg-indigo-950/20 font-semibold" style={{ borderBottom:'1px solid var(--border)' }}>
+                        <td className="py-3 px-4 flex items-center gap-2 text-theme-primary">
+                          <button
+                            onClick={() => setSweatersExpanded(!sweatersExpanded)}
+                            className="text-indigo-600 dark:text-indigo-400 font-bold text-xs w-6 h-6 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded"
+                            type="button"
+                          >
+                            {sweatersExpanded ? '▼' : '▶'}
+                          </button>
+                          <span>🧶 Sweaters ({sweaters.length} items)</span>
+                        </td>
+                        <td className="py-3 px-4 text-theme-secondary">Sweaters</td>
+                        <td className="py-3 px-4 text-theme-secondary">—</td>
+                        <td className="py-3 px-4 text-theme-secondary capitalize">Mixed</td>
+                        <td className="py-3 px-4 text-indigo-600 font-bold">{totalSweaterShopQty}</td>
+                        <td className="py-3 px-4 text-indigo-600 font-bold">{totalSweaterWorkshopQty}</td>
+                        <td className="py-3 px-4 text-theme-secondary">—</td>
+                        <td className="py-3 px-4 text-theme-secondary">—</td>
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() => setSweatersExpanded(!sweatersExpanded)}
+                            className="text-xs font-semibold text-indigo-600 hover:underline"
+                          >
+                            {sweatersExpanded ? 'Collapse' : 'Expand All'}
+                          </button>
+                        </td>
+                      </tr>
+                      {sweatersExpanded && Object.keys(sweatersGroupedByStyle).map(styleName => {
+                        const styleItems = sweatersGroupedByStyle[styleName];
+                        const styleShopQty = styleItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+                        const styleWorkshopQty = styleItems.reduce((sum, item) => sum + (item.workshop_quantity || 0), 0);
+                        const isStyleExpanded = !!expandedStyles[styleName];
+
+                        return (
+                          <React.Fragment key={styleName}>
+                            {/* Style group row */}
+                            <tr className="bg-indigo-50/10 dark:bg-indigo-950/10 hover-theme" style={{ borderBottom:'1px solid var(--border-light)' }}>
+                              <td className="py-2.5 px-4 pl-8 flex items-center gap-2 font-medium text-theme-primary">
+                                <button
+                                  onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
+                                  className="text-xs font-bold w-5 h-5 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded"
+                                  type="button"
+                                >
+                                  {isStyleExpanded ? '▼' : '▶'}
+                                </button>
+                                <span>{styleName}</span>
+                              </td>
+                              <td className="py-2.5 px-4 text-theme-secondary">Sweaters</td>
+                              <td className="py-2.5 px-4 text-theme-secondary font-medium">Sizes 22-40</td>
+                              <td className="py-2.5 px-4 text-theme-secondary capitalize">Manufactured</td>
+                              <td className="py-2.5 px-4 text-theme-primary font-semibold">{styleShopQty}</td>
+                              <td className="py-2.5 px-4 text-theme-primary font-semibold">{styleWorkshopQty}</td>
+                              <td className="py-2.5 px-4 text-theme-secondary">—</td>
+                              <td className="py-2.5 px-4 text-theme-secondary">—</td>
+                              <td className="py-2.5 px-4">
+                                <button
+                                  onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
+                                  className="text-xs font-semibold text-indigo-600 hover:underline"
+                                >
+                                  {isStyleExpanded ? 'Hide Sizes' : 'Show Sizes'}
+                                </button>
+                              </td>
+                            </tr>
+
+                            {/* Render individual sizes only if expanded */}
+                            {isStyleExpanded && styleItems.map(item => (
+                              <tr key={item.id} className="hover-theme" style={{ borderBottom:'1px solid var(--border-light)', backgroundColor:'rgba(99,102,241,0.02)' }}>
+                                <td className="py-2 px-4 pl-16 text-theme-secondary font-medium">Size {item.size}</td>
+                                <td className="py-2 px-4 text-theme-muted">{item.category}</td>
+                                <td className="py-2 px-4 text-theme-secondary">{item.size}</td>
+                                <td className="py-2 px-4 text-theme-secondary capitalize">{item.source_type}</td>
+                                <td className="py-2 px-4">
+                                  {user?.role !== 'workshop' && item.source_type === 'purchased' ? (
+                                    editingQty === item.id
+                                      ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
+                                      : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>
+                                  ) : (
+                                    <span style={qtyStyle(item)}>{item.quantity}</span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-4 text-theme-secondary">
+                                  {item.source_type === 'manufactured' ? (
+                                    (user?.role === 'workshop' || user?.role === 'admin') ? (
+                                      editingWorkshopQty === item.id
+                                        ? <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);if(e.key==='Escape')setEditingWorkshopQty(null);}} className="input w-20" />
+                                        : <button onClick={()=>{setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}} className="hover:underline font-semibold text-theme-primary">{item.workshop_quantity}</button>
+                                    ) : (
+                                      <span className="font-semibold text-theme-primary">{item.workshop_quantity}</span>
+                                    )
+                                  ) : '—'}
+                                </td>
+                                <td className="py-2 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
+                                <td className="py-2 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
+                                <td className="py-2 px-4">
+                                  {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
+                                    <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
+                                  )}
+                                  {user?.role === 'admin' && (
+                                    <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium mr-3" style={{ color:'#ef4444' }}>Delete</button>
+                                  )}
+                                  <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
+                                </td>
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
+                    </>
+                  )}
                 </tbody>
               </table>
             </div>
             {/* Mobile cards */}
             <div className="md:hidden">
-              {stock.map(item=>(
-                <div key={item.id} className="p-4" style={{ borderBottom:'1px solid var(--border-light)' }}>
-                  <div className="flex items-start justify-between mb-2">
+              {Object.keys(nonSweatersGroupedByStyle).map(styleName => {
+                const styleItems = nonSweatersGroupedByStyle[styleName];
+                if (styleItems.length === 1) {
+                  const item = styleItems[0];
+                  return (
+                    <div key={item.id} className="p-4" style={{ borderBottom:'1px solid var(--border-light)' }}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-semibold text-theme-primary">{item.name}</p>
+                          <p className="text-xs text-theme-secondary">
+                            {item.category||'--'}{item.size?` - ${item.size}`:''} • <span className="capitalize">{item.source_type}</span>
+                          </p>
+                          {item.barcode && <p className="text-xs text-theme-muted font-mono mt-0.5">BC: {item.barcode}</p>}
+                        </div>
+                        <div className="text-right">
+                          {user?.role !== 'workshop' && item.source_type === 'purchased' ? (
+                            editingQty===item.id
+                              ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);}} className="input w-20" />
+                              : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={{ ...qtyStyle(item), fontSize:'1.1rem' }} className="hover:underline">{item.quantity}</button>
+                          ) : (
+                            <span style={{ ...qtyStyle(item), fontSize:'1.1rem' }}>{item.quantity}</span>
+                          )}
+                          <p className="text-xs text-theme-muted">shop qty</p>
+                          {item.source_type === 'manufactured' && (
+                            editingWorkshopQty === item.id ? (
+                              <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);}} className="input w-20 mt-1" />
+                            ) : (
+                              <button onClick={()=>{if(user?.role==='workshop'||user?.role==='admin'){setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}}} className="text-xs text-theme-secondary hover:underline mt-1 block">
+                                Workshop: <strong>{item.workshop_quantity}</strong>
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex gap-3 text-xs text-theme-secondary">
+                          <span>Price: <strong className="text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</strong></span>
+                        </div>
+                        <div className="flex gap-3">
+                          {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
+                            <button onClick={()=>openEdit(item)} className="text-xs font-medium" style={{ color:'#6366f1' }}>Edit</button>
+                          )}
+                          {user?.role === 'admin' && (
+                            <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium" style={{ color:'#ef4444' }}>Delete</button>
+                          )}
+                          <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Render group mobile card
+                const totalShopQty = styleItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+                const totalWorkshopQty = styleItems.reduce((sum, item) => sum + (item.workshop_quantity || 0), 0);
+                const firstItem = styleItems[0];
+                const isExpanded = !!expandedStyles[styleName];
+
+                return (
+                  <div key={styleName} className="p-4" style={{ borderBottom:'1px solid var(--border-light)' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="font-semibold text-theme-primary">{styleName}</p>
+                        <p className="text-xs text-theme-secondary">{firstItem.category} • {styleItems.length} sizes</p>
+                        <p className="text-[11px] text-theme-secondary mt-0.5">
+                          Shop: <strong className="text-theme-primary">{totalShopQty}</strong> | Worksp: <strong className="text-theme-primary">{totalWorkshopQty}</strong>
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
+                        className="px-3 py-1 text-xs font-bold rounded-lg border bg-white dark:bg-zinc-950"
+                        style={{ color:'#6366f1', borderColor:'rgba(99,102,241,0.2)' }}
+                      >
+                        {isExpanded ? 'Hide Sizes' : 'Show Sizes'}
+                      </button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="mt-3 pl-3 border-l-2 border-indigo-200 dark:border-indigo-800 space-y-3">
+                        {styleItems.map(item => (
+                          <div key={item.id} className="py-2" style={{ borderBottom:'1px dashed var(--border-light)' }}>
+                            <div className="flex items-start justify-between mb-1">
+                              <div>
+                                <p className="font-semibold text-xs text-theme-primary">Size: {item.size || '--'}</p>
+                                <p className="text-[10px] text-theme-muted">{item.source_type}</p>
+                              </div>
+                              <div className="text-right">
+                                <span style={{ ...qtyStyle(item), fontSize:'0.9rem' }}>Shop: {item.quantity}</span>
+                                {item.source_type === 'manufactured' && (
+                                  editingWorkshopQty === item.id ? (
+                                    <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);}} className="input w-16 mt-0.5" />
+                                  ) : (
+                                    <button onClick={()=>{if(user?.role==='workshop'||user?.role==='admin'){setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}}} className="text-[10px] text-theme-secondary hover:underline block mt-0.5">
+                                      Worksp: <strong>{item.workshop_quantity}</strong>
+                                    </button>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] mt-1">
+                              <span className="text-theme-muted">Price: {item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</span>
+                              <div className="flex gap-2">
+                                {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
+                                  <button onClick={()=>openEdit(item)} className="text-indigo-600 font-medium">Edit</button>
+                                )}
+                                {user?.role === 'admin' && (
+                                  <button onClick={()=>setDeleteConfirm(item)} className="text-red-500 font-medium">Delete</button>
+                                )}
+                                <button onClick={()=>handlePrintTag(item)} className="text-emerald-600 font-medium">Tag</button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {sweaters.length > 0 && (
+                <div className="p-4 bg-indigo-50/10 dark:bg-indigo-950/10" style={{ borderBottom:'1px solid var(--border)' }}>
+                  <div className="flex items-center justify-between mb-2">
                     <div>
-                      <p className="font-semibold text-theme-primary">{item.name}</p>
-                      <p className="text-xs text-theme-secondary">{item.category||'--'}{item.size?` - ${item.size}`:''}</p>
+                      <p className="font-bold text-theme-primary text-sm">🧶 Sweaters Group ({sweaters.length} items)</p>
+                      <p className="text-[11px] text-theme-secondary mt-0.5">
+                        Shop: <strong className="text-theme-primary">{totalSweaterShopQty}</strong> | Workshop: <strong className="text-theme-primary">{totalSweaterWorkshopQty}</strong>
+                      </p>
                     </div>
-                    <div className="text-right">
-                      {editingQty===item.id
-                        ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);}} className="input w-20" />
-                        : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={{ ...qtyStyle(item), fontSize:'1.1rem' }} className="hover:underline">{item.quantity}</button>
-                      }
-                      <p className="text-xs text-theme-muted">qty</p>
-                    </div>
+                    <button
+                      onClick={() => setSweatersExpanded(!sweatersExpanded)}
+                      className="px-3 py-1 text-xs font-bold rounded-lg border bg-white dark:bg-zinc-950"
+                      style={{ color:'#6366f1', borderColor:'rgba(99,102,241,0.2)' }}
+                    >
+                      {sweatersExpanded ? 'Hide All' : 'Expand All'}
+                    </button>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-3 text-xs text-theme-secondary">
-                      <span>Price: <strong className="text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</strong></span>
-                      <span>Min: <strong className="text-theme-primary">{item.low_stock_threshold}</strong></span>
+
+                  {sweatersExpanded && (
+                    <div className="mt-3 pl-3 border-l-2 border-indigo-200 dark:border-indigo-800 space-y-4">
+                      {Object.keys(sweatersGroupedByStyle).map(styleName => {
+                        const styleItems = sweatersGroupedByStyle[styleName];
+                        const styleShopQty = styleItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+                        const styleWorkshopQty = styleItems.reduce((sum, item) => sum + (item.workshop_quantity || 0), 0);
+                        const isStyleExpanded = !!expandedStyles[styleName];
+
+                        return (
+                          <div key={styleName} className="space-y-2">
+                            <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-zinc-900 border" style={{ borderColor: 'var(--border)' }}>
+                              <div>
+                                <p className="font-semibold text-xs text-theme-primary">{styleName}</p>
+                                <p className="text-[10px] text-theme-muted mt-0.5">Shop: {styleShopQty} | Worksp: {styleWorkshopQty}</p>
+                              </div>
+                              <button
+                                onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
+                                className="text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-200 text-indigo-600 dark:border-zinc-700 dark:text-indigo-400"
+                              >
+                                {isStyleExpanded ? 'Hide Sizes' : 'Show Sizes'}
+                              </button>
+                            </div>
+
+                            {isStyleExpanded && (
+                              <div className="pl-3 space-y-3">
+                                {styleItems.map(item => (
+                                  <div key={item.id} className="py-2" style={{ borderBottom:'1px dashed var(--border-light)' }}>
+                                    <div className="flex items-start justify-between mb-1">
+                                      <div>
+                                        <p className="font-medium text-xs text-theme-secondary">Size {item.size}</p>
+                                        <p className="text-[9px] text-theme-muted">{item.source_type}</p>
+                                      </div>
+                                      <div className="text-right">
+                                        <span style={{ ...qtyStyle(item), fontSize:'0.9rem' }}>Shop: {item.quantity}</span>
+                                        {item.source_type === 'manufactured' && (
+                                          editingWorkshopQty === item.id ? (
+                                            <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);}} className="input w-16 mt-0.5" />
+                                          ) : (
+                                            <button onClick={()=>{if(user?.role==='workshop'||user?.role==='admin'){setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}}} className="text-[10px] text-theme-secondary hover:underline block mt-0.5">
+                                              Worksp: <strong>{item.workshop_quantity}</strong>
+                                            </button>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] mt-1">
+                                      <span className="text-theme-muted">Price: {item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</span>
+                                      <div className="flex gap-2">
+                                        {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
+                                          <button onClick={()=>openEdit(item)} className="text-indigo-600 font-medium">Edit</button>
+                                        )}
+                                        {user?.role === 'admin' && (
+                                          <button onClick={()=>setDeleteConfirm(item)} className="text-red-500 font-medium">Delete</button>
+                                        )}
+                                        <button onClick={()=>handlePrintTag(item)} className="text-emerald-600 font-medium">Tag</button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div className="flex gap-3">
-                      <button onClick={()=>openEdit(item)} className="text-xs font-medium" style={{ color:'#6366f1' }}>Edit</button>
-                      <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium" style={{ color:'#ef4444' }}>Delete</button>
-                    </div>
-                  </div>
+                  )}
                 </div>
-              ))}
+              )}
             </div>
           </>
         )}
@@ -391,35 +1349,81 @@ export default function StockManager() {
             {formError && <p className="text-sm p-2 rounded" style={{ background:'#fee2e2', color:'#991b1b' }}>{formError}</p>}
             <div>
               <label className="label">Name *</label>
-              <input className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Boys Shirt" />
+              {form.category === 'Sweaters' ? (
+                <select className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}>
+                  {SWEATER_STYLES.map(style => <option key={style} value={style}>{style}</option>)}
+                </select>
+              ) : (
+                <input className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Boys Shirt" />
+              )}
             </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Source Type</label>
+                <select className="input" value={form.source_type} onChange={e=>setForm(f=>({...f,source_type:e.target.value}))} disabled={user?.role === 'workshop'}>
+                  <option value="purchased">Purchased (Direct to Shop)</option>
+                  <option value="manufactured">Manufactured (Workshop)</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Barcode / SKU</label>
+                <input className="input" value={form.barcode} onChange={e=>setForm(f=>({...f,barcode:e.target.value}))} placeholder="e.g. 7123456789" />
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">Category</label>
-                <select className="input" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
+                <select className="input" value={form.category} onChange={e => {
+                  const cat = e.target.value;
+                  setForm(f => ({
+                    ...f,
+                    category: cat,
+                    source_type: cat === 'Sweaters' ? 'manufactured' : f.source_type,
+                    name: cat === 'Sweaters' && !SWEATER_STYLES.includes(f.name) ? 'Sweater: Navy Plain' : f.name,
+                    size: cat === 'Sweaters' ? '22' : f.size
+                  }));
+                }}>
                   <option value="">Select...</option>
                   {CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
                 <label className="label">Size</label>
-                <input className="input" value={form.size} onChange={e=>setForm(f=>({...f,size:e.target.value}))} placeholder="e.g. Age 7-8" />
+                {form.category === 'Sweaters' ? (
+                  <select className="input" value={form.size} onChange={e=>setForm(f=>({...f,size:e.target.value}))}>
+                    {['22', '24', '26', '28', '30', '32', '34', '36', '38', '40'].map(sz => <option key={sz} value={sz}>{sz}</option>)}
+                  </select>
+                ) : (
+                  <input className="input" value={form.size} onChange={e=>setForm(f=>({...f,size:e.target.value}))} placeholder="e.g. Age 7-8" />
+                )}
               </div>
             </div>
+            
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">Quantity</label>
-                <input type="number" min="0" className="input" value={form.quantity} onChange={e=>setForm(f=>({...f,quantity:e.target.value}))} />
+                <label className="label">Shop Quantity</label>
+                <input type="number" min="0" className="input" value={form.quantity} onChange={e=>setForm(f=>({...f,quantity:e.target.value}))} disabled={user?.role === 'workshop' || (form.source_type === 'manufactured' && editItem)} />
+                {form.source_type === 'manufactured' && editItem && <p className="text-[10px] text-theme-muted mt-0.5">{user?.role === 'workshop' ? 'Managed by workshop stock control' : 'Managed via dispatches'}</p>}
               </div>
+              <div>
+                <label className="label">Workshop Quantity</label>
+                <input type="number" min="0" className="input" value={form.workshop_quantity} onChange={e=>setForm(f=>({...f,workshop_quantity:e.target.value}))} disabled={form.source_type === 'purchased'} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">Price (Ksh)</label>
                 <input type="number" min="0" step="0.01" className="input" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} />
               </div>
+              <div>
+                <label className="label">Low Stock Threshold</label>
+                <input type="number" min="0" className="input" value={form.low_stock_threshold} onChange={e=>setForm(f=>({...f,low_stock_threshold:e.target.value}))} />
+              </div>
             </div>
-            <div>
-              <label className="label">Low Stock Threshold</label>
-              <input type="number" min="0" className="input" value={form.low_stock_threshold} onChange={e=>setForm(f=>({...f,low_stock_threshold:e.target.value}))} />
-            </div>
+
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={saving} className="btn-primary flex-1">{saving?'Saving...':editItem?'Update':'Add Item'}</button>
               <button type="button" onClick={()=>setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
@@ -459,6 +1463,137 @@ export default function StockManager() {
           <SalesHistoryModal onClose={()=>setShowHistory(false)} />
         </Modal>
       )}
+
+      {/* Tag Print Modal */}
+      {printTagItem && (
+        <TagPrintModal
+          item={printTagItem}
+          onClose={() => setPrintTagItem(null)}
+        />
+      )}
+
+      {/* Log Production Modal */}
+      {showProductionModal && (() => {
+        const manufacturedStyles = Array.from(new Set(
+          stock.filter(s => s.source_type === 'manufactured').map(s => s.name)
+        )).sort();
+
+        const filteredStyles = manufacturedStyles.filter(name =>
+          name.toLowerCase().includes(prodSearch.toLowerCase())
+        );
+
+        const styleStockItems = selectedProdStyle ? stock.filter(s => s.name === selectedProdStyle) : [];
+
+        return (
+          <Modal title="Log Manufactured Production" wide onClose={() => setShowProductionModal(false)}>
+            <form onSubmit={e => handleLogProductionSubmit(e, styleStockItems)} className="space-y-4">
+              {formError && <p className="text-sm p-2 rounded" style={{ background: '#fee2e2', color: '#991b1b' }}>{formError}</p>}
+              
+              <div>
+                <label className="label">Search Sweater Color / Style *</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Type to filter (e.g. Sweater: Navy plain, Strathmore, Green)..."
+                  value={prodSearch}
+                  onChange={e => {
+                    setProdSearch(e.target.value);
+                    setSelectedProdStyle(null);
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              {!selectedProdStyle ? (
+                <div className="space-y-1.5 max-h-60 overflow-y-auto border rounded-lg p-2 bg-zinc-50 dark:bg-zinc-900" style={{ borderColor: 'var(--border)' }}>
+                  <p className="text-[10px] uppercase font-bold text-theme-muted mb-1 px-1">Select matching style:</p>
+                  {filteredStyles.slice(0, 15).map(style => (
+                    <button
+                      key={style}
+                      type="button"
+                      onClick={() => {
+                        setSelectedProdStyle(style);
+                        setProdSearch(style);
+                        setProdQuantities({});
+                      }}
+                      className="w-full text-left p-2.5 rounded-lg border bg-white dark:bg-zinc-950 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-sm font-medium transition-colors"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
+                      {style}
+                    </button>
+                  ))}
+                  {filteredStyles.length === 0 && (
+                    <p className="text-xs text-theme-muted p-2 text-center">No matching styles found.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4 border-t pt-4" style={{ borderColor: 'var(--border)' }}>
+                  <div className="flex justify-between items-center bg-indigo-50/30 dark:bg-indigo-950/30 p-3 rounded-lg">
+                    <div>
+                      <p className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Selected Style</p>
+                      <p className="font-semibold text-theme-primary text-sm mt-0.5">{selectedProdStyle}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProdStyle(null);
+                        setProdSearch('');
+                        setProdQuantities({});
+                      }}
+                      className="text-xs font-semibold text-indigo-600 hover:underline"
+                    >
+                      Change Style
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="label">Enter Produced Quantities per Size:</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      {['22', '24', '26', '28', '30', '32', '34', '36', '38', '40'].map(size => {
+                        const item = styleStockItems.find(s => s.size === size);
+                        const currentQty = item ? (item.workshop_quantity || 0) : 0;
+                        return (
+                          <div key={size} className="p-2.5 rounded-lg border space-y-1 bg-white dark:bg-zinc-950" style={{ borderColor: 'var(--border)' }}>
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-xs text-theme-primary">Size {size}</span>
+                              <span className="text-[10px] text-theme-muted">({currentQty} current)</span>
+                            </div>
+                            <input
+                              type="number"
+                              min="0"
+                              className="input text-xs py-1 mt-1 text-center"
+                              placeholder="+0"
+                              value={prodQuantities[size] || ''}
+                              onChange={e => setProdQuantities(prev => ({ ...prev, [size]: e.target.value }))}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={saving || Object.values(prodQuantities).every(q => !q.trim())}
+                      className="btn-primary flex-1"
+                    >
+                      {saving ? 'Saving...' : 'Confirm & Log Production'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowProductionModal(false)}
+                      className="btn-secondary flex-1"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </form>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }

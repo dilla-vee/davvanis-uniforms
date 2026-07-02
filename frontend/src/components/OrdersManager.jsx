@@ -35,7 +35,7 @@ function StatusBadge({ status }) {
 const STATUSES = ['pending','processing','completed','cancelled'];
 const KSH = 'Ksh ';
 
-export default function OrdersManager() {
+export default function OrdersManager({ user }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -116,7 +116,9 @@ export default function OrdersManager() {
           <h2 className="text-2xl font-bold text-theme-primary">Orders</h2>
           <p className="text-sm mt-1 text-theme-secondary">{orders.length} total orders</p>
         </div>
-        <button onClick={openAdd} className="btn-primary">+ New Order</button>
+        {user?.role !== 'workshop' && (
+          <button onClick={openAdd} className="btn-primary">+ New Order</button>
+        )}
       </div>
 
       <div className="card overflow-hidden">
@@ -145,7 +147,9 @@ export default function OrdersManager() {
                       <td className="py-3 px-4"><StatusBadge status={order.status} /></td>
                       <td className="py-3 px-4" onClick={e=>e.stopPropagation()}>
                         <button onClick={()=>openDetail(order)} className="text-xs font-medium mr-3" style={{color:'#6366f1'}}>View</button>
-                        <button onClick={()=>handleDelete(order.id)} className="text-xs font-medium" style={{color:'#ef4444'}}>Delete</button>
+                        {user?.role === 'admin' && (
+                          <button onClick={()=>handleDelete(order.id)} className="text-xs font-medium" style={{color:'#ef4444'}}>Delete</button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -196,10 +200,16 @@ export default function OrdersManager() {
               </div>
               <div className="flex items-center gap-3">
                 <label className="text-sm font-medium text-theme-secondary">Status:</label>
-                <select value={orderDetail.status} onChange={e=>handleStatusChange(orderDetail.id,e.target.value)} disabled={updatingStatus} className="input w-40">
-                  {STATUSES.map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
-                </select>
-                {updatingStatus && <span className="text-xs text-theme-muted">Saving...</span>}
+                {user?.role === 'workshop' ? (
+                  <StatusBadge status={orderDetail.status} />
+                ) : (
+                  <>
+                    <select value={orderDetail.status} onChange={e=>handleStatusChange(orderDetail.id,e.target.value)} disabled={updatingStatus} className="input w-40">
+                      {STATUSES.map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+                    </select>
+                    {updatingStatus && <span className="text-xs text-theme-muted">Saving...</span>}
+                  </>
+                )}
               </div>
               {orderDetail.notes && (
                 <div className="p-3 rounded-lg text-theme-secondary" style={{backgroundColor:'var(--bg-muted)'}}>

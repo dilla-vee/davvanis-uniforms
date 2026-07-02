@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -53,6 +54,9 @@ async function initDB() {
         quantity            INTEGER DEFAULT 0,
         price               NUMERIC(10,2),
         low_stock_threshold INTEGER DEFAULT 10,
+        barcode             TEXT UNIQUE,
+        workshop_quantity   INTEGER DEFAULT 0,
+        source_type         TEXT DEFAULT 'purchased',
         updated_at          TIMESTAMPTZ DEFAULT NOW()
       );
 
@@ -100,6 +104,63 @@ async function initDB() {
         unit_price   NUMERIC(10,2),
         subtotal     NUMERIC(10,2)
       );
+
+      CREATE TABLE IF NOT EXISTS stock_transfers (
+        id            SERIAL PRIMARY KEY,
+        transfer_date TIMESTAMPTZ DEFAULT NOW(),
+        received_date TIMESTAMPTZ,
+        status        TEXT DEFAULT 'pending',
+        notes         TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS stock_transfer_items (
+        id             SERIAL PRIMARY KEY,
+        transfer_id    INTEGER REFERENCES stock_transfers(id) ON DELETE CASCADE,
+        stock_id       INTEGER REFERENCES stock(id) ON DELETE SET NULL,
+        qty_dispatched INTEGER NOT NULL,
+        qty_received   INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS users (
+        id            SERIAL PRIMARY KEY,
+        username      TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role          TEXT NOT NULL DEFAULT 'attendant',
+        name          TEXT NOT NULL,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    // Schema migration for existing stock table:
+    await client.query(`
+      ALTER TABLE stock ADD COLUMN IF NOT EXISTS barcode TEXT UNIQUE;
+      ALTER TABLE stock ADD COLUMN IF NOT EXISTS workshop_quantity INTEGER DEFAULT 0;
+      ALTER TABLE stock ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'purchased';
+    `);
+
+    // Migration for stock transfers tracking details:
+    await client.query(`
+      ALTER TABLE stock_transfers ADD COLUMN IF NOT EXISTS dispatched_by TEXT;
+      ALTER TABLE stock_transfers ADD COLUMN IF NOT EXISTS carrier_name TEXT;
+      ALTER TABLE stock_transfers ADD COLUMN IF NOT EXISTS order_name TEXT;
+      ALTER TABLE stock_transfers ADD COLUMN IF NOT EXISTS received_by TEXT;
+    `);
+
+    // Create database indexes for scaling and search optimization
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_client_uniform_photos_client_id ON client_uniform_photos(client_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_client_id ON orders(client_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_order_date ON orders(order_date);
+      CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
+      CREATE INDEX IF NOT EXISTS idx_order_items_stock_id ON order_items(stock_id);
+      CREATE INDEX IF NOT EXISTS idx_daily_sales_sale_date ON daily_sales(sale_date);
+      CREATE INDEX IF NOT EXISTS idx_daily_sale_items_sale_id ON daily_sale_items(sale_id);
+      CREATE INDEX IF NOT EXISTS idx_daily_sale_items_stock_id ON daily_sale_items(stock_id);
+      CREATE INDEX IF NOT EXISTS idx_stock_transfers_transfer_date ON stock_transfers(transfer_date);
+      CREATE INDEX IF NOT EXISTS idx_stock_transfers_status ON stock_transfers(status);
+      CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_transfer_id ON stock_transfer_items(transfer_id);
+      CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_stock_id ON stock_transfer_items(stock_id);
+      CREATE INDEX IF NOT EXISTS idx_stock_category ON stock(category);
     `);
 
     const { rows } = await client.query('SELECT COUNT(*) as count FROM clients');
@@ -163,6 +224,86 @@ async function initDB() {
         );
       }
       console.log('Seed complete.');
+    }
+
+    // Seed default admin user if no users exist
+    const userCount = await client.query('SELECT COUNT(*) as count FROM users');
+    if (parseInt(userCount.rows[0].count) === 0) {
+      console.log('Seeding default administrator...');
+      const adminPassHash = bcrypt.hashSync('admin123', 10);
+      await client.query(
+        `INSERT INTO users (username, password_hash, role, name) VALUES ($1, $2, $3, $4)`,
+        ['admin', adminPassHash, 'admin', 'Administrator']
+      );
+      console.log('Admin user created successfully (username: admin, password: admin123).');
+    }
+
+    // Seed sweaters if count is 0
+    const sweaterCount = await client.query("SELECT COUNT(*) as count FROM stock WHERE category = 'Sweaters'");
+    if (parseInt(sweaterCount.rows[0].count) === 0) {
+      console.log('Seeding sweater stock items (colors + sizes 22-40)...');
+      const colors = {
+        'navy plain': 'Sweater: Navy Plain',
+        'navy white': 'Sweater: Navy with White stripes',
+        'navy sky': 'Sweater: Navy with Sky stripes',
+        'navy red': 'Sweater: Navy with Red stripes',
+        'navy yellow': 'Sweater: Navy with Yellow stripes',
+        'red plain': 'Sweater: Red Plain',
+        'red white': 'Sweater: Red with White stripes',
+        'maroon plain': 'Sweater: Maroon Plain',
+        'maroon white': 'Sweater: Maroon with White stripes',
+        'green plain': 'Sweater: Green Plain',
+        'green white': 'Sweater: Green with White stripes',
+        'green safaricom': 'Sweater: Green with Safaricom stripes',
+        'strathmore white': 'Sweater: Strathmore with White stripes',
+        'royal plain': 'Sweater: Royal Plain',
+        'royal white': 'Sweater: Royal with White stripes',
+        'Kk Blue': 'Sweater: KK Blue Plain',
+        'grey plain': 'Sweater: Grey Plain',
+        'grey white': 'Sweater: Grey with White stripes',
+        'grey red': 'Sweater: Grey with Red stripes',
+        'grey red white': 'Sweater: Grey with Red and White stripes',
+        'grey navy': 'Sweater: Grey with Navy stripes',
+        'grey blue white': 'Sweater: Grey with Blue and White stripes',
+        'grey white purple': 'Sweater: Grey with White and Purple stripes',
+        'grey purple white': 'Sweater: Grey with Purple and White stripes',
+        'school grey': 'Sweater: School Grey Plain',
+        'ash grey': 'Sweater: Ash Grey Plain',
+        'jungle': 'Sweater: Jungle Plain',
+        'jungle white': 'Sweater: Jungle with White stripes',
+        'jungle cream': 'Sweater: Jungle with Cream stripes',
+        'light purple white': 'Sweater: Light Purple with White stripes',
+        'dark purple plain': 'Sweater: Dark Purple Plain',
+        'dark purple white': 'Sweater: Dark Purple with White stripes',
+        'sky plain': 'Sweater: Sky Plain',
+        'sky white': 'Sweater: Sky with White stripes',
+        'beige plain': 'Sweater: Beige Plain',
+        'biege whitw': 'Sweater: Beige with White stripes',
+        'biege chocolate': 'Sweater: Beige with Chocolate stripes',
+        'chocolate plain': 'Sweater: Chocolate Plain',
+        'chocolate white': 'Sweater: Chocolate with White stripes',
+        'chocolate beige': 'Sweater: Chocolate with Beige stripes',
+        'black plain': 'Sweater: Black Plain',
+        'black white': 'Sweater: Black with White stripes',
+        'grey maroon': 'Sweater: Grey with Maroon stripes',
+        'KK sky': 'Sweater: KK with Sky stripes',
+        'grey(ash)red': 'Sweater: Grey (Ash) with Red stripes',
+        'grey red white red': 'Sweater: Grey with Red, White, and Red stripes'
+      };
+
+      const sizes = ['22', '24', '26', '28', '30', '32', '34', '36', '38', '40'];
+      
+      for (const [key, value] of Object.entries(colors)) {
+        for (const size of sizes) {
+          await client.query(
+            `INSERT INTO stock (name, category, size, quantity, price, low_stock_threshold, workshop_quantity, source_type, updated_at)
+             VALUES ($1, 'Sweaters', $2, 0, null, 10, 0, 'manufactured', NOW())
+             ON CONFLICT DO NOTHING`,
+            [value, size]
+          );
+        }
+      }
+      console.log('Sweater stock seeding complete.');
     }
 
     await client.query('COMMIT');

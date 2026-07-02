@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../utils/api';
 
 function StatCard({ icon, label, value, bg, loading }) {
@@ -37,6 +37,7 @@ export default function Dashboard() {
   const [lowStock, setLowStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sweatersExpanded, setSweatersExpanded] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -95,20 +96,70 @@ export default function Dashboard() {
                 <th className="text-left py-2 text-theme-secondary font-medium">Qty</th>
               </tr></thead>
               <tbody>
-                {lowStock.map(item => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                    <td className="py-2.5 pr-4 font-medium text-theme-primary">
-                      {item.name}
-                      <span className="block text-xs text-theme-muted sm:hidden">{item.category} · {item.size}</span>
-                    </td>
-                    <td className="py-2.5 pr-4 text-theme-secondary hidden sm:table-cell">{item.category || '—'}</td>
-                    <td className="py-2.5 pr-4 text-theme-secondary hidden sm:table-cell">{item.size || '—'}</td>
-                    <td className="py-2.5">
-                      <span className="font-bold" style={{ color: '#ef4444' }}>{item.quantity}</span>
-                      <span className="text-xs ml-1 text-theme-muted">/ {item.low_stock_threshold} min</span>
-                    </td>
-                  </tr>
-                ))}
+                {(() => {
+                  const lowSweaters = lowStock.filter(item => item.category === 'Sweaters');
+                  const lowNonSweaters = lowStock.filter(item => item.category !== 'Sweaters');
+
+                  return (
+                    <>
+                      {lowNonSweaters.map(item => (
+                        <tr key={item.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                          <td className="py-2.5 pr-4 font-medium text-theme-primary">
+                            {item.name}
+                            <span className="block text-xs text-theme-muted sm:hidden">{item.category} · {item.size}</span>
+                          </td>
+                          <td className="py-2.5 pr-4 text-theme-secondary hidden sm:table-cell">{item.category || '—'}</td>
+                          <td className="py-2.5 pr-4 text-theme-secondary hidden sm:table-cell">{item.size || '—'}</td>
+                          <td className="py-2.5">
+                            <span className="font-bold" style={{ color: '#ef4444' }}>{item.quantity}</span>
+                            <span className="text-xs ml-1 text-theme-muted">/ {item.low_stock_threshold} min</span>
+                          </td>
+                        </tr>
+                      ))}
+
+                      {lowSweaters.length > 0 && (
+                        <>
+                          <tr className="bg-red-50/15 dark:bg-red-950/10 font-medium" style={{ borderBottom: '1px solid var(--border-light)' }}>
+                            <td className="py-2.5 pr-4 text-theme-primary flex items-center gap-2">
+                              <button
+                                onClick={() => setSweatersExpanded(!sweatersExpanded)}
+                                className="text-red-500 font-bold text-xs w-5 h-5 flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-950/30 rounded"
+                                type="button"
+                              >
+                                {sweatersExpanded ? '▼' : '▶'}
+                              </button>
+                              <span>🧶 Sweaters ({lowSweaters.length} items low in stock)</span>
+                            </td>
+                            <td className="py-2.5 pr-4 text-theme-secondary hidden sm:table-cell">Sweaters</td>
+                            <td className="py-2.5 pr-4 text-theme-secondary hidden sm:table-cell">—</td>
+                            <td className="py-2.5">
+                              <button
+                                onClick={() => setSweatersExpanded(!sweatersExpanded)}
+                                className="text-xs font-semibold text-red-500 hover:underline"
+                              >
+                                {sweatersExpanded ? 'Hide Details' : 'Show Details'}
+                              </button>
+                            </td>
+                          </tr>
+                          {sweatersExpanded && lowSweaters.map(item => (
+                            <tr key={item.id} style={{ borderBottom: '1px solid var(--border-light)', backgroundColor: 'rgba(239,68,68,0.02)' }}>
+                              <td className="py-2 px-4 pl-10 text-theme-primary font-medium">
+                                {item.name}
+                                <span className="block text-xs text-theme-muted sm:hidden">{item.category} · {item.size}</span>
+                              </td>
+                              <td className="py-2 px-4 text-theme-secondary hidden sm:table-cell">{item.category}</td>
+                              <td className="py-2 px-4 text-theme-secondary hidden sm:table-cell">{item.size || '—'}</td>
+                              <td className="py-2">
+                                <span className="font-bold" style={{ color: '#ef4444' }}>{item.quantity}</span>
+                                <span className="text-xs ml-1 text-theme-muted">/ {item.low_stock_threshold} min</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </tbody>
             </table>
           </div>

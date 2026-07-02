@@ -10,6 +10,9 @@ require('./database');
 const clientsRouter = require('./routes/clients');
 const ordersRouter = require('./routes/orders');
 const stockRouter = require('./routes/stock');
+const authRouter = require('./routes/auth');
+const usersRouter = require('./routes/users');
+const { authenticateToken } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,10 +25,20 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded images statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Delete guard helper
+const restrictDeleteForAttendant = (req, res, next) => {
+  if (req.method === 'DELETE' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied: Only administrators can delete records.' });
+  }
+  next();
+};
+
 // API Routes
-app.use('/api/clients', clientsRouter);
-app.use('/api/orders', ordersRouter);
-app.use('/api/stock', stockRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/clients', authenticateToken, restrictDeleteForAttendant, clientsRouter);
+app.use('/api/orders', authenticateToken, restrictDeleteForAttendant, ordersRouter);
+app.use('/api/stock', authenticateToken, restrictDeleteForAttendant, stockRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

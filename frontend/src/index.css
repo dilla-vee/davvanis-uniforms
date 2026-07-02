@@ -4,41 +4,57 @@
 
 /* ── CSS variables for theming ── */
 :root {
-  --bg-page:      #f9fafb;
+  --bg-page:      #fffdf3; /* Soft Warm Yellow */
   --bg-card:      #ffffff;
   --bg-sidebar:   #ffffff;
   --bg-header:    #ffffff;
   --bg-input:     #ffffff;
-  --bg-muted:     #f3f4f6;
-  --bg-hover:     #f9fafb;
+  --bg-muted:     #f8f7ee;
+  --bg-hover:     #fff9e6;
 
-  --border:       #e5e7eb;
-  --border-light: #f3f4f6;
+  --border:       #e6e5db;
+  --border-light: #f2f1e6;
 
-  --text-primary:   #111827;
-  --text-secondary: #6b7280;
-  --text-muted:     #9ca3af;
+  --text-primary:   #003152; /* Prestige Mauve */
+  --text-secondary: #334155; /* Slate secondary */
+  --text-muted:     #64748b;
 
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+
+  /* Accents */
+  --color-primary-base:    #003152; /* Prestige Mauve */
+  --color-primary-hover:   #00223b;
+  --color-primary-text:    #ffffff;
+  --color-accent-base:     #addffi; /* Soft Blue */
+  --color-danger-base:     #ab1509; /* Deep Rich Red */
+  --color-danger-hover:    #900f05;
 }
 
 html.dark {
-  --bg-page:      #030712;
-  --bg-card:      #111827;
-  --bg-sidebar:   #111827;
-  --bg-header:    #111827;
-  --bg-input:     #1f2937;
-  --bg-muted:     #1f2937;
-  --bg-hover:     #1f2937;
+  --bg-page:      #09030a; /* Midnight Plum / Deep Onyx dark base */
+  --bg-card:      #120716; /* Midnight Plum dark card */
+  --bg-sidebar:   #0d0510; /* Extra dark Midnight Plum sidebar */
+  --bg-header:    #120716;
+  --bg-input:     #1d0c24;
+  --bg-muted:     #1d0c24;
+  --bg-hover:     #1a0b20;
 
-  --border:       #374151;
-  --border-light: #1f2937;
+  --border:       #2d1138;
+  --border-light: #200c28;
 
-  --text-primary:   #f9fafb;
-  --text-secondary: #9ca3af;
-  --text-muted:     #6b7280;
+  --text-primary:   #fbb0e9; /* Light Orchid Pink text */
+  --text-secondary: #dca2d0; /* Soft Orchid Lavender */
+  --text-muted:     #8a6582;
 
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+
+  /* Accents */
+  --color-primary-base:    #00e676; /* Spring Green */
+  --color-primary-hover:   #00c853;
+  --color-primary-text:    #09030a; /* Dark text on neon green */
+  --color-accent-base:     #fbb0e9; /* Light Orchid Pink */
+  --color-danger-base:     #ff334b; /* Vibrant Red */
+  --color-danger-hover:    #d50000;
 }
 
 /* ── Apply variables to elements ── */
@@ -67,18 +83,32 @@ body {
 
 @layer components {
   .btn-primary {
-    @apply bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm;
+    @apply px-4 py-2 rounded-lg transition-colors font-semibold text-sm;
+    background-color: var(--color-primary-base);
+    color: var(--color-primary-text);
   }
+  .btn-primary:hover {
+    background-color: var(--color-primary-hover);
+  }
+
   .btn-secondary {
     @apply px-4 py-2 rounded-lg transition-colors font-medium text-sm;
     background-color: var(--bg-card);
     color: var(--text-primary);
     border: 1px solid var(--border);
   }
-  .btn-secondary:hover { background-color: var(--bg-muted); }
+  .btn-secondary:hover { 
+    background-color: var(--bg-muted); 
+    border-color: var(--text-muted);
+  }
 
   .btn-danger {
-    @apply bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors font-medium text-sm;
+    @apply px-4 py-2 rounded-lg transition-colors font-semibold text-sm;
+    background-color: var(--color-danger-base);
+    color: #ffffff;
+  }
+  .btn-danger:hover {
+    background-color: var(--color-danger-hover);
   }
 
   .card {
@@ -89,14 +119,71 @@ body {
   }
 
   .input {
-    @apply w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
+    @apply w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:border-transparent;
     background-color: var(--bg-input);
     border: 1px solid var(--border);
     color: var(--text-primary);
+  }
+  .input:focus {
+    border-color: var(--color-primary-base);
+    --tw-ring-color: var(--color-primary-base);
   }
 
   .label {
     @apply block text-sm font-medium mb-1;
     color: var(--text-secondary);
   }
+}
+
+/* Custom color classes mapping overrides */
+.text-indigo-600, .text-indigo-500, .text-indigo-700 {
+  color: var(--color-primary-base) !important;
+}
+.dark .text-indigo-400 {
+  color: var(--color-primary-base) !important;
+}
+.bg-indigo-600, .bg-indigo-500 {
+  background-color: var(--color-primary-base) !important;
+}
+.hover\:bg-indigo-700:hover {
+  background-color: var(--color-primary-hover) !important;
+}
+.text-emerald-600, .text-emerald-500 {
+  color: var(--color-primary-base) !important;
+}
+.text-red-500, .text-red-600 {
+  color: var(--color-danger-base) !important;
+}
+.bg-red-50 {
+  background-color: var(--bg-muted) !important;
+}
+.border-indigo-200 {
+  border-color: var(--border) !important;
+}
+.bg-indigo-50\/20 {
+  background-color: rgba(0, 49, 82, 0.05) !important;
+}
+.dark .bg-indigo-50\/20 {
+  background-color: rgba(0, 230, 118, 0.08) !important;
+}
+.bg-indigo-50\/10 {
+  background-color: rgba(0, 49, 82, 0.03) !important;
+}
+.dark .bg-indigo-50\/10 {
+  background-color: rgba(0, 230, 118, 0.05) !important;
+}
+.text-indigo-600.dark\:text-indigo-400 {
+  color: var(--color-primary-base) !important;
+}
+.hover\:text-indigo-800:hover {
+  color: var(--color-primary-hover) !important;
+}
+.text-indigo-600.hover\:underline {
+  color: var(--color-primary-base) !important;
+}
+.text-indigo-600.dark\:text-indigo-400.hover\:underline {
+  color: var(--color-primary-base) !important;
+}
+.text-indigo-600.dark\:text-indigo-400.font-semibold {
+  color: var(--color-primary-base) !important;
 }

@@ -1,10 +1,13 @@
-import { useState, Component } from 'react';
+import { useState, useEffect, Component } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import StockManager from './components/StockManager';
 import OrdersManager from './components/OrdersManager';
 import ClientsManager from './components/ClientsManager';
 import Analytics from './components/Analytics';
+import TransitManager from './components/TransitManager';
+import Login from './components/Login';
+import UserManager from './components/UserManager';
 
 // Error boundary — catches JS crashes and shows message instead of black screen
 class ErrorBoundary extends Component {
@@ -34,6 +37,7 @@ class ErrorBoundary extends Component {
 const PAGE_LABELS = {
   dashboard: 'Dashboard',
   stock: 'Stock Manager',
+  transfers: 'Transit Manager',
   orders: 'Orders',
   clients: 'Clients',
   analytics: 'Analytics',
@@ -62,9 +66,24 @@ function applyTheme(dark) {
 }
 
 export default function App() {
+  const [token, setToken] = useState(() => localStorage.getItem('unistore_token'));
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('unistore_user'));
+    } catch {
+      return null;
+    }
+  });
+
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dark, setDark] = useState(getInitialDark);
+
+  useEffect(() => {
+    if (user?.role === 'workshop' && !['transfers', 'stock', 'orders'].includes(activePage)) {
+      setActivePage('transfers');
+    }
+  }, [user, activePage]);
 
   const toggleDark = () => {
     const next = !dark;
@@ -77,16 +96,40 @@ export default function App() {
     setSidebarOpen(false);
   };
 
+  const handleLoginSuccess = (t, u) => {
+    setToken(t);
+    setUser(u);
+    setActivePage('dashboard');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('unistore_token');
+    localStorage.removeItem('unistore_user');
+    setToken(null);
+    setUser(null);
+    setActivePage('dashboard');
+  };
+
   const renderPage = () => {
     switch (activePage) {
       case 'dashboard': return <Dashboard />;
-      case 'stock':     return <StockManager />;
-      case 'orders':    return <OrdersManager />;
-      case 'clients':   return <ClientsManager />;
-      case 'analytics': return <Analytics />;
+      case 'stock':     return <StockManager user={user} />;
+      case 'transfers': return <TransitManager user={user} />;
+      case 'orders':    return <OrdersManager user={user} />;
+      case 'clients':   return user?.role !== 'workshop' ? <ClientsManager user={user} /> : <Dashboard />;
+      case 'users':     return user?.role === 'admin' ? <UserManager /> : <Dashboard />;
+      case 'analytics': return user?.role === 'admin' ? <Analytics /> : <Dashboard />;
       default:          return <Dashboard />;
     }
   };
+
+  if (!token) {
+    return (
+      <ErrorBoundary>
+        <Login onLoginSuccess={handleLoginSuccess} />
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary>
@@ -96,7 +139,7 @@ export default function App() {
       )}
 
       <div className={`fixed inset-y-0 left-0 z-40 lg:static lg:z-auto transform transition-transform duration-200 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <Sidebar activePage={activePage} setActivePage={handleNav} dark={dark} onToggleDark={toggleDark} />
+        <Sidebar activePage={activePage} setActivePage={handleNav} dark={dark} onToggleDark={toggleDark} user={user} onLogout={handleLogout} />
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
