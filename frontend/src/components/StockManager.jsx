@@ -82,8 +82,22 @@ function CameraScannerModal({ onClose, onScan }) {
   useEffect(() => {
     let html5Qrcode;
     const elementId = 'scanner-view';
-    
+
     const startScanner = async () => {
+      try {
+        // Pre-check camera permission with getUserMedia to get a clear error early
+        const testStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        testStream.getTracks().forEach(t => t.stop());
+      } catch (permErr) {
+        const msg = permErr?.name === 'NotAllowedError' || permErr?.name === 'PermissionDeniedError'
+          ? 'Camera permission denied. Please go to: Settings → Apps → Davannis Uniforms → Permissions → Camera → Allow.'
+          : permErr?.name === 'NotFoundError'
+            ? 'No camera found on this device.'
+            : 'Camera unavailable: ' + (permErr?.message || permErr?.name || String(permErr) || 'Unknown error');
+        setScanError(msg);
+        return;
+      }
+
       try {
         html5Qrcode = new Html5Qrcode(elementId);
         await html5Qrcode.start(
@@ -96,13 +110,15 @@ function CameraScannerModal({ onClose, onScan }) {
             onScan(decodedText);
             stopScanner();
           },
-          () => {} // ignore error logs
+          () => {} // ignore per-frame decode errors
         );
       } catch (err) {
-        setScanError('Failed to access camera: ' + err.message);
+        const msg = err?.message || err?.name || (typeof err === 'string' ? err : null)
+          || 'Could not start scanner. Ensure camera permissions are enabled.';
+        setScanError('Scanner error: ' + msg);
       }
     };
-    
+
     const stopScanner = async () => {
       try {
         if (html5Qrcode && html5Qrcode.isScanning) {
@@ -123,6 +139,7 @@ function CameraScannerModal({ onClose, onScan }) {
       }
     };
   }, [onClose, onScan]);
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
