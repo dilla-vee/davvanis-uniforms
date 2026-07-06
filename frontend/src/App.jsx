@@ -124,7 +124,7 @@ export default function App() {
       case 'dashboard': return <Dashboard user={user} />;
       case 'stock':     return user?.role === 'embroidery' ? <TransitManager user={user} /> : <StockManager user={user} />;
       case 'transfers': return <TransitManager user={user} />;
-      case 'orders':    return user?.role === 'embroidery' ? <TransitManager user={user} /> : <OrdersManager user={user} />;
+      case 'orders':    return (user?.role === 'embroidery' || user?.role === 'workshop') ? <TransitManager user={user} /> : <OrdersManager user={user} />;
       case 'clients':   return (user?.role !== 'workshop' && user?.role !== 'embroidery') ? <ClientsManager user={user} /> : <Dashboard user={user} />;
       case 'users':     return user?.role === 'admin' ? <UserManager /> : <Dashboard user={user} />;
       case 'analytics': return user?.role === 'admin' ? <Analytics /> : <Dashboard user={user} />;

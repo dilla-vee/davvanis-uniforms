@@ -7,7 +7,6 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
   } else if (user?.role === 'workshop') {
     navItems.push({ id: 'transfers', label: 'Transit', icon: '🚚' });
     navItems.push({ id: 'stock', label: 'Stock', icon: '📦' });
-    navItems.push({ id: 'orders', label: 'Orders', icon: '📋' });
   } else {
     navItems.push({ id: 'dashboard', label: 'Dashboard', icon: '🏠' });
     navItems.push({ id: 'stock', label: 'Stock', icon: '📦' });
