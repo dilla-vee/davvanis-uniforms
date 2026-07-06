@@ -182,22 +182,40 @@ export default function App() {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-sm">{dark ? '🌙' : '☀️'}</span>
             <div className="relative cursor-pointer" onClick={toggleDark}>
               <div style={{
-                width: '44px', height: '24px', borderRadius: '12px',
-                backgroundColor: dark ? '#4f46e5' : '#d1d5db',
-                transition: 'background-color 0.3s',
-                position: 'relative'
+                position: 'relative',
+                width: '48px',
+                height: '26px',
+                borderRadius: '13px',
+                background: dark
+                  ? 'linear-gradient(135deg, #1a1a2e, #2d2d44)'
+                  : 'linear-gradient(135deg, #fde68a, #fbbf24)',
+                transition: 'background 0.4s ease',
+                boxShadow: dark
+                  ? 'inset 0 1px 3px rgba(0,0,0,0.4)'
+                  : 'inset 0 1px 3px rgba(0,0,0,0.1)',
               }}>
                 <div style={{
-                  position: 'absolute', top: '4px',
-                  left: dark ? '24px' : '4px',
-                  width: '16px', height: '16px',
-                  borderRadius: '50%', backgroundColor: 'white',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                  transition: 'left 0.3s'
-                }} />
+                  position: 'absolute',
+                  top: '3px',
+                  left: dark ? '25px' : '3px',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: dark ? '#1e1e22' : '#ffffff',
+                  boxShadow: dark
+                    ? '0 0 6px rgba(217,162,27,0.4), 0 1px 3px rgba(0,0,0,0.5)'
+                    : '0 1px 4px rgba(0,0,0,0.15)',
+                  transition: 'left 0.35s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s, box-shadow 0.3s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '11px',
+                  lineHeight: 1,
+                }}>
+                  {dark ? '🌙' : '☀️'}
+                </div>
               </div>
             </div>
           </div>

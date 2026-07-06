@@ -66,8 +66,8 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
               onClick={() => setActivePage(item.id)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left"
               style={{
-                backgroundColor: isActive ? (dark ? '#1e1b4b' : '#eef2ff') : 'transparent',
-                color: isActive ? (dark ? '#a5b4fc' : '#4338ca') : 'var(--text-secondary)',
+                backgroundColor: isActive ? (dark ? '#282520' : '#eef2ff') : 'transparent',
+                color: isActive ? (dark ? '#d9a21b' : '#4338ca') : 'var(--text-secondary)',
               }}
               onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
               onMouseLeave={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
@@ -103,44 +103,56 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
 
       {/* Footer — theme toggle */}
       <div className="px-4 py-3 border-t" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <span className="text-base">{dark ? '🌙' : '☀️'}</span>
-            <span className="text-xs font-medium text-theme-secondary">
-              {dark ? 'Dark Mode' : 'Light Mode'}
-            </span>
-          </div>
-
-          {/* Toggle switch — inline styles so it always works */}
+        <div
+          onClick={onToggleDark}
+          className="flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors"
+          style={{ background: 'var(--bg-muted)' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-muted)'}
+        >
+          {/* Sun/Moon toggle track */}
           <div
-            onClick={onToggleDark}
-            role="switch"
-            aria-checked={dark}
-            tabIndex={0}
-            onKeyDown={e => e.key === 'Enter' && onToggleDark()}
             style={{
               position: 'relative',
-              width: '40px',
-              height: '22px',
-              borderRadius: '11px',
-              backgroundColor: dark ? '#4f46e5' : '#d1d5db',
-              cursor: 'pointer',
-              transition: 'background-color 0.3s ease',
+              width: '48px',
+              height: '26px',
+              borderRadius: '13px',
+              background: dark
+                ? 'linear-gradient(135deg, #1a1a2e, #2d2d44)'
+                : 'linear-gradient(135deg, #fde68a, #fbbf24)',
+              transition: 'background 0.4s ease',
               flexShrink: 0,
+              boxShadow: dark
+                ? 'inset 0 1px 3px rgba(0,0,0,0.4)'
+                : 'inset 0 1px 3px rgba(0,0,0,0.1)',
             }}
           >
+            {/* Knob */}
             <div style={{
               position: 'absolute',
               top: '3px',
-              left: dark ? '21px' : '3px',
-              width: '16px',
-              height: '16px',
+              left: dark ? '25px' : '3px',
+              width: '20px',
+              height: '20px',
               borderRadius: '50%',
-              backgroundColor: 'white',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              transition: 'left 0.3s ease',
-            }} />
+              background: dark ? '#1e1e22' : '#ffffff',
+              boxShadow: dark
+                ? '0 0 6px rgba(217,162,27,0.4), 0 1px 3px rgba(0,0,0,0.5)'
+                : '0 1px 4px rgba(0,0,0,0.15)',
+              transition: 'left 0.35s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s, box-shadow 0.3s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '11px',
+              lineHeight: 1,
+            }}>
+              {dark ? '🌙' : '☀️'}
+            </div>
           </div>
+
+          <span className="text-xs font-semibold text-theme-secondary">
+            {dark ? 'Dark' : 'Light'}
+          </span>
         </div>
         <p className="text-[9px] text-theme-muted text-center mt-2.5">Davannis Uniforms © 2026</p>
       </div>

@@ -242,33 +242,37 @@ export default function Dashboard({ user }) {
       <div
         className="rounded-2xl p-5 relative overflow-hidden"
         style={{
-          background: 'linear-gradient(135deg, #003152 0%, #0f172a 50%, #1e1b4b 100%)',
-          boxShadow: '0 8px 32px rgba(0,49,82,0.35)',
+          background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-muted) 100%)',
+          border: '1px solid var(--border-light)',
+          boxShadow: 'var(--shadow)',
         }}
       >
-        <div className="relative z-10">
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#94a3b8' }}>{today}</p>
-          <h1 className="text-2xl font-extrabold text-white mt-1">
+        {/* Warm accent stripe at top */}
+        <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ background: 'linear-gradient(90deg, #d9a21b, #b8860b, #d9a21b)' }} />
+
+        <div className="relative z-10 mt-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-theme-muted">{today}</p>
+          <h1 className="text-2xl font-extrabold text-theme-primary mt-1">
             {getGreeting()}{user?.name ? `, ${user.name.split(' ')[0]}` : ''}! 👋
           </h1>
-          <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>
+          <p className="text-sm mt-1 text-theme-secondary">
             Here's what's happening at Davannis Uniforms today.
           </p>
-          <div className="flex flex-wrap gap-3 mt-4">
-            <div className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <div className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(99,102,241,0.08)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.15)' }}>
               📦 {loading ? '…' : totalShopQty} in Shop
             </div>
-            <div className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(6,182,212,0.2)', color: '#67e8f9' }}>
+            <div className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(217,162,27,0.1)', color: '#b8860b', border: '1px solid rgba(217,162,27,0.2)' }}>
               🏭 {loading ? '…' : totalWorkshopQty} in Workshop
             </div>
-            <div className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(236,72,153,0.2)', color: '#f9a8d4' }}>
+            <div className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(168,85,247,0.08)', color: '#7c3aed', border: '1px solid rgba(168,85,247,0.15)' }}>
               🪡 {loading ? '…' : totalEmbroidery} in Embroidery
             </div>
           </div>
         </div>
         {/* Decorative shapes */}
-        <div className="absolute top-0 right-0 w-40 h-40 rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #6366f1, transparent)', transform: 'translate(30%, -30%)' }} />
-        <div className="absolute bottom-0 right-12 w-24 h-24 rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #06b6d4, transparent)', transform: 'translateY(30%)' }} />
+        <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-[0.04]" style={{ background: 'radial-gradient(circle, #d9a21b, transparent)', transform: 'translate(30%, -30%)' }} />
+        <div className="absolute bottom-0 right-10 w-20 h-20 rounded-full opacity-[0.04]" style={{ background: 'radial-gradient(circle, #b8860b, transparent)', transform: 'translateY(30%)' }} />
       </div>
 
       {/* ── KPI row ── */}

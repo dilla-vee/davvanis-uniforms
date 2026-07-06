@@ -31,30 +31,30 @@
 }
 
 html.dark {
-  --bg-page:      #09030a; /* Midnight Plum / Deep Onyx dark base */
-  --bg-card:      #120716; /* Midnight Plum dark card */
-  --bg-sidebar:   #0d0510; /* Extra dark Midnight Plum sidebar */
-  --bg-header:    #120716;
-  --bg-input:     #1d0c24;
-  --bg-muted:     #1d0c24;
-  --bg-hover:     #1a0b20;
+  --bg-page:      #111113; /* Warm charcoal base */
+  --bg-card:      #1a1a1e; /* Slightly lighter card */
+  --bg-sidebar:   #141416; /* Deep sidebar */
+  --bg-header:    #1a1a1e;
+  --bg-input:     #222226;
+  --bg-muted:     #1e1e22;
+  --bg-hover:     #252528;
 
-  --border:       #2d1138;
-  --border-light: #200c28;
+  --border:       #2e2e33;
+  --border-light: #242428;
 
-  --text-primary:   #fbb0e9; /* Light Orchid Pink text */
-  --text-secondary: #dca2d0; /* Soft Orchid Lavender */
-  --text-muted:     #8a6582;
+  --text-primary:   #f0ece4; /* Warm cream white */
+  --text-secondary: #a8a29e; /* Warm stone */
+  --text-muted:     #6b6560;
 
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
 
   /* Accents */
-  --color-primary-base:    #00e676; /* Spring Green */
-  --color-primary-hover:   #00c853;
-  --color-primary-text:    #09030a; /* Dark text on neon green */
-  --color-accent-base:     #fbb0e9; /* Light Orchid Pink */
-  --color-danger-base:     #ff334b; /* Vibrant Red */
-  --color-danger-hover:    #d50000;
+  --color-primary-base:    #d9a21b; /* Warm Gold — matching brand */
+  --color-primary-hover:   #c4910f;
+  --color-primary-text:    #111113; /* Dark text on gold */
+  --color-accent-base:     #d9a21b; /* Gold accent */
+  --color-danger-base:     #ef4444; /* Clean red */
+  --color-danger-hover:    #dc2626;
 }
 
 /* ── Apply variables to elements ── */
