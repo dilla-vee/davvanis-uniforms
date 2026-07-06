@@ -220,11 +220,13 @@ export default function Login({ onLoginSuccess }) {
       <div className="relative z-20 w-full max-w-md">
         <div className="bg-slate-950/65 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-[#00e676]/10 rounded-full mb-4">
-              <span className="text-3xl animate-pulse">👔</span>
-            </div>
+            <img
+              src="/davannis-logo.svg"
+              alt="Davannis Uniforms"
+              className="mx-auto mb-4 h-36 w-auto max-w-[220px]"
+            />
             <h1 className="text-3xl font-extrabold text-white mb-1 tracking-tight" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-              Davvanis Uniforms
+              Davannis Uniforms
             </h1>
             <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">
               UniStore POS System

@@ -41,11 +41,15 @@ export default function TransitManager({ user }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewTransfer, setViewTransfer] = useState(null);
 
+  // Tabs State
+  const [activeTab, setActiveTab] = useState('all');
+
   // New Dispatch Form State
   const [dispatchItems, setDispatchItems] = useState([]);
   const [dispatchNotes, setDispatchNotes] = useState('');
   const [carrierName, setCarrierName] = useState('');
   const [orderName, setOrderName] = useState('');
+  const [transferType, setTransferType] = useState('workshop_to_shop');
   const [savingDispatch, setSavingDispatch] = useState(false);
   const [dispatchError, setDispatchError] = useState('');
 
@@ -57,6 +61,12 @@ export default function TransitManager({ user }) {
   const [checkInNotes, setCheckInNotes] = useState('');
   const [savingCheckIn, setSavingCheckIn] = useState(false);
   const [checkInError, setCheckInError] = useState('');
+
+  // Admin: Correct Transfer Type State
+  const [correctingTransfer, setCorrectingTransfer] = useState(null); // transfer object
+  const [correctType, setCorrectType] = useState('');
+  const [savingCorrect, setSavingCorrect] = useState(false);
+  const [correctError, setCorrectError] = useState('');
 
   const fetchData = async () => {
     try {
@@ -75,6 +85,33 @@ export default function TransitManager({ user }) {
     }
   };
 
+  const openCorrectType = (t) => {
+    setCorrectingTransfer(t);
+    setCorrectType(t.transfer_type || 'workshop_to_shop');
+    setCorrectError('');
+  };
+
+  const handleCorrectType = async () => {
+    if (!correctingTransfer || !correctType) return;
+    setSavingCorrect(true);
+    setCorrectError('');
+    try {
+      const res = await apiFetch(`/api/stock/transfers/${correctingTransfer.id}/type`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transfer_type: correctType })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to correct type');
+      await fetchData();
+      setCorrectingTransfer(null);
+    } catch (err) {
+      setCorrectError(err.message);
+    } finally {
+      setSavingCorrect(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -85,6 +122,13 @@ export default function TransitManager({ user }) {
     setCarrierName('');
     setOrderName('');
     setDispatchItems([]);
+    if (user?.role === 'embroidery') {
+      // Embroidery role only has one option — pre-select it
+      setTransferType('embroidery_to_shop');
+    } else {
+      // Workshop role: force explicit selection — no default so wrong type can't sneak in
+      setTransferType('');
+    }
     setShowAddModal(true);
   };
 
@@ -124,9 +168,13 @@ export default function TransitManager({ user }) {
         return;
       }
       const s = stock.find(st => String(st.id) === String(item.stock_id));
-      if (s && qty > s.workshop_quantity) {
-        setDispatchError(`Insufficient workshop stock for "${s.name} (${s.size || 'No Size'})". Available: ${s.workshop_quantity}`);
-        return;
+      if (s) {
+        const available = transferType === 'embroidery_to_shop' ? (s.embroidery_quantity || 0) : (s.workshop_quantity || 0);
+        const sourceName = transferType === 'embroidery_to_shop' ? 'embroidery' : 'workshop';
+        if (qty > available) {
+          setDispatchError(`Insufficient ${sourceName} stock for "${s.name} (${s.size || 'No Size'})". Available: ${available}`);
+          return;
+        }
       }
     }
 
@@ -142,7 +190,8 @@ export default function TransitManager({ user }) {
           })),
           notes: dispatchNotes,
           carrier_name: carrierName.trim() || null,
-          order_name: orderName.trim() || null
+          order_name: orderName.trim() || null,
+          transfer_type: transferType
         })
       });
       const data = await res.json();
@@ -215,9 +264,49 @@ export default function TransitManager({ user }) {
     }
   };
 
+  const canCheckIn = (t) => {
+    if (t.status !== 'pending') return false;
+    if (user?.role === 'admin') return true;
+    const type = t.transfer_type || 'workshop_to_shop';
+    if (type === 'workshop_to_embroidery') {
+      return user?.role === 'embroidery';
+    } else {
+      // workshop_to_shop or embroidery_to_shop
+      return user?.role === 'attendant';
+    }
+  };
+
+  const getTransferTypeLabel = (type) => {
+    switch (type) {
+      case 'workshop_to_shop': return 'Workshop ➔ Shop';
+      case 'workshop_to_embroidery': return 'Workshop ➔ Embroidery';
+      case 'embroidery_to_shop': return 'Embroidery ➔ Shop';
+      default: return 'Workshop ➔ Shop';
+    }
+  };
+
   const manufacturedStockList = stock.filter(s => s.source_type === 'manufactured');
 
   const filteredTransfers = transfers.filter(t => {
+    const type = t.transfer_type || 'workshop_to_shop';
+
+    // Role-based visibility: each role only sees transfers relevant to them
+    if (user?.role === 'embroidery') {
+      // Embroidery sees: incoming from workshop + their own outgoing to shop
+      if (type !== 'workshop_to_embroidery' && type !== 'embroidery_to_shop') return false;
+    } else if (user?.role === 'workshop') {
+      // Workshop sees only transfers they dispatched
+      if (type !== 'workshop_to_shop' && type !== 'workshop_to_embroidery') return false;
+    } else if (user?.role === 'attendant') {
+      // Shop attendant sees only what is coming to the shop
+      if (type !== 'workshop_to_shop' && type !== 'embroidery_to_shop') return false;
+    }
+    // Admin sees everything
+
+    // Tab filtering
+    if (activeTab !== 'all' && type !== activeTab) return false;
+
+    // Search query filtering
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
     const matchesId = String(t.id).includes(q);
@@ -229,6 +318,21 @@ export default function TransitManager({ user }) {
     return matchesId || matchesNotes || matchesOrder || matchesCarrier || matchesDispBy || matchesItems;
   });
 
+  // Compute role-specific tabs
+  const allTabDefs = [
+    { id: 'all', label: 'All Transits' },
+    { id: 'workshop_to_shop', label: 'Workshop ➔ Shop' },
+    { id: 'workshop_to_embroidery', label: 'Workshop ➔ Embroidery' },
+    { id: 'embroidery_to_shop', label: 'Embroidery ➔ Shop' },
+  ];
+  const visibleTabs = allTabDefs.filter(tab => {
+    if (user?.role === 'admin') return true; // admin sees all tabs
+    if (user?.role === 'embroidery') return ['all', 'workshop_to_embroidery', 'embroidery_to_shop'].includes(tab.id);
+    if (user?.role === 'workshop') return ['all', 'workshop_to_shop', 'workshop_to_embroidery'].includes(tab.id);
+    if (user?.role === 'attendant') return ['all', 'workshop_to_shop', 'embroidery_to_shop'].includes(tab.id);
+    return true;
+  });
+
   if (error) return <div className="rounded-lg p-4" style={{ background: '#fee2e2', color: '#991b1b' }}>{error}</div>;
 
   return (
@@ -236,11 +340,31 @@ export default function TransitManager({ user }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-theme-primary">Stock Transit Manager</h2>
-          <p className="text-sm mt-1 text-theme-secondary">{transfers.length} total dispatches recorded</p>
+          <p className="text-sm mt-1 text-theme-secondary">{filteredTransfers.length} dispatch{filteredTransfers.length !== 1 ? 'es' : ''} visible to your role</p>
         </div>
         {user?.role !== 'attendant' && (
           <button onClick={openAdd} className="btn-primary">🚚 + New Dispatch</button>
         )}
+      </div>
+
+      {/* Tabs — filtered by role */}
+      <div className="flex border-b border-theme-border text-sm font-semibold gap-4 shrink-0 overflow-x-auto pb-1">
+        {visibleTabs.map(tab => {
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="pb-2 border-b-2 px-1 transition-all whitespace-nowrap"
+              style={{
+                borderColor: active ? '#4f46e5' : 'transparent',
+                color: active ? '#4f46e5' : 'var(--text-secondary)'
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Search Filter Bar */}
@@ -270,7 +394,7 @@ export default function TransitManager({ user }) {
               <table className="w-full text-sm">
                 <thead style={{ backgroundColor: 'var(--bg-muted)', borderBottom: '1px solid var(--border)' }}>
                   <tr>
-                    {['Dispatch #', 'Order Ref', 'Date', 'Items', 'Dispatched By', 'Carrier / Handled By', 'Received By', 'Status', 'Actions'].map(h => (
+                    {['Dispatch #', 'Type', 'Order Ref', 'Date', 'Items', 'Dispatched By', 'Carrier / Handled By', 'Received By', 'Status', 'Actions'].map(h => (
                       <th key={h} className="text-left py-3 px-4 text-xs uppercase tracking-wide text-theme-secondary font-medium">{h}</th>
                     ))}
                   </tr>
@@ -279,6 +403,17 @@ export default function TransitManager({ user }) {
                   {filteredTransfers.map(t => (
                     <tr key={t.id} className="hover-theme cursor-pointer" style={{ borderBottom: '1px solid var(--border-light)' }} onClick={() => openCheckIn(t)}>
                       <td className="py-3 px-4 font-semibold text-indigo-500">#{t.id}</td>
+                      <td className="py-3 px-4 text-theme-secondary font-medium">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                          t.transfer_type === 'workshop_to_embroidery'
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/20 dark:text-purple-400'
+                            : t.transfer_type === 'embroidery_to_shop'
+                              ? 'bg-pink-100 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400'
+                              : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400'
+                        }`}>
+                          {getTransferTypeLabel(t.transfer_type)}
+                        </span>
+                      </td>
                       <td className="py-3 px-4 font-medium text-theme-primary truncate max-w-[150px]">{t.order_name || '—'}</td>
                       <td className="py-3 px-4 text-theme-secondary">{new Date(t.transfer_date).toLocaleDateString()}</td>
                       <td className="py-3 px-4 text-theme-primary">{t.items.reduce((s, i) => s + i.qty_dispatched, 0)} items ({t.items.length} types)</td>
@@ -288,8 +423,17 @@ export default function TransitManager({ user }) {
                       <td className="py-3 px-4"><StatusBadge status={t.status} /></td>
                       <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
                         <button onClick={() => openCheckIn(t)} className="text-xs font-medium mr-3 text-indigo-600 hover:underline">
-                          {t.status === 'pending' && user?.role !== 'workshop' ? 'Check-In' : 'View Details'}
+                          {canCheckIn(t) ? 'Check-In' : 'View Details'}
                         </button>
+                        {user?.role === 'admin' && t.status === 'pending' && (
+                          <button
+                            onClick={() => openCorrectType(t)}
+                            className="text-xs font-medium text-amber-600 hover:underline"
+                            title="Correct the transfer destination type"
+                          >
+                            ✏️ Fix Type
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -301,9 +445,18 @@ export default function TransitManager({ user }) {
             <div className="md:hidden">
               {filteredTransfers.map(t => (
                 <div key={t.id} className="p-4 cursor-pointer hover-theme" style={{ borderBottom: '1px solid var(--border-light)' }} onClick={() => openCheckIn(t)}>
-                  <div className="flex items-start justify-between mb-1.5">
+                  <div className="flex items-start justify-between mb-1.5 flex-wrap gap-1">
                     <div>
                       <span className="font-semibold text-sm text-indigo-500">Dispatch #{t.id}</span>
+                      <span className={`ml-2 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                        t.transfer_type === 'workshop_to_embroidery'
+                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/20 dark:text-purple-400'
+                          : t.transfer_type === 'embroidery_to_shop'
+                            ? 'bg-pink-100 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400'
+                            : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400'
+                      }`}>
+                        {getTransferTypeLabel(t.transfer_type)}
+                      </span>
                       {t.order_name && <p className="text-xs font-semibold text-theme-primary mt-0.5">Ref: {t.order_name}</p>}
                       <p className="text-[10px] text-theme-muted mt-1">By: {t.dispatched_by || '—'} | Carrier: {t.carrier_name || '—'}{t.received_by && ` | Recv: ${t.received_by}`}</p>
                     </div>
@@ -311,9 +464,19 @@ export default function TransitManager({ user }) {
                   </div>
                   <div className="flex items-center justify-between mt-2 pt-1 border-t border-dashed" style={{ borderColor: 'var(--border-light)' }}>
                     <span className="text-[10px] text-theme-secondary">{new Date(t.transfer_date).toLocaleDateString()} • {t.items.reduce((s, i) => s + i.qty_dispatched, 0)} items</span>
-                    <button className="text-xs font-semibold text-indigo-600">
-                      {t.status === 'pending' && user?.role !== 'workshop' ? 'Check-In' : 'View'}
-                    </button>
+                    <div className="flex gap-2 items-center">
+                      {user?.role === 'admin' && t.status === 'pending' && (
+                        <button
+                          onClick={e => { e.stopPropagation(); openCorrectType(t); }}
+                          className="text-[10px] font-semibold text-amber-600"
+                        >
+                          ✏️ Fix Type
+                        </button>
+                      )}
+                      <button className="text-xs font-semibold text-indigo-600">
+                        {canCheckIn(t) ? 'Check-In' : 'View'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -324,14 +487,68 @@ export default function TransitManager({ user }) {
 
       {/* New Dispatch Modal */}
       {showAddModal && (
-        <Modal title="Create Workshop Dispatch (Checkout)" wide onClose={() => setShowAddModal(false)}>
+        <Modal title={transferType === 'embroidery_to_shop' 
+          ? "Create Embroidery Dispatch (Checkout)" 
+          : transferType === 'workshop_to_embroidery'
+            ? "Create Workshop ➔ Embroidery Dispatch"
+            : "Create Workshop Dispatch (Checkout)"} wide onClose={() => setShowAddModal(false)}>
           <form onSubmit={handleDispatchSubmit} className="space-y-4">
             {dispatchError && <p className="text-sm p-2 rounded" style={{ background: '#fee2e2', color: '#991b1b' }}>{dispatchError}</p>}
             
-            <div className="flex items-center justify-between mb-2">
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="label" style={{ color: !transferType ? '#dc2626' : undefined }}>
+                  📦 Transfer Destination * {!transferType && <span style={{ fontWeight: 700 }}>— Please select a destination to continue</span>}
+                </label>
+                <select
+                  className="input text-sm"
+                  value={transferType}
+                  onChange={e => setTransferType(e.target.value)}
+                  style={{
+                    borderColor: !transferType ? '#dc2626' : undefined,
+                    fontWeight: 600
+                  }}
+                >
+                  {(user?.role === 'workshop' || user?.role === 'admin') && (
+                    <option value="" disabled>— Select where to send these items —</option>
+                  )}
+                  {user?.role === 'admin' && (
+                    <>
+                      <option value="workshop_to_shop">Workshop ➔ Retail Shop (Plain Garments)</option>
+                      <option value="workshop_to_embroidery">Workshop ➔ Embroidery Shop (For Branding)</option>
+                      <option value="embroidery_to_shop">Embroidery Shop ➔ Retail Shop (Finished Garments)</option>
+                    </>
+                  )}
+                  {user?.role === 'workshop' && (
+                    <>
+                      <option value="workshop_to_shop">Workshop ➔ Retail Shop (Plain Garments)</option>
+                      <option value="workshop_to_embroidery">Workshop ➔ Embroidery Shop (For Branding)</option>
+                    </>
+                  )}
+                  {user?.role === 'embroidery' && (
+                    <option value="embroidery_to_shop">Embroidery Shop ➔ Retail Shop (Finished Garments)</option>
+                  )}
+                </select>
+                {!transferType && (
+                  <p className="text-xs mt-1" style={{ color: '#dc2626' }}>⚠️ You must choose a destination before adding items or submitting.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-2 pt-2 border-t" style={{ borderColor: 'var(--border-light)' }}>
               <label className="label mb-0">Dispatched Items *</label>
-              <button type="button" onClick={addDispatchItem} className="text-xs font-medium px-2 py-1 rounded"
-                style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>+ Add Item</button>
+              <button
+                type="button"
+                onClick={addDispatchItem}
+                disabled={!transferType}
+                className="text-xs font-medium px-2 py-1 rounded"
+                style={{
+                  background: transferType ? 'rgba(99,102,241,0.1)' : 'var(--bg-muted)',
+                  color: transferType ? '#6366f1' : 'var(--text-muted)',
+                  cursor: transferType ? 'pointer' : 'not-allowed',
+                  opacity: transferType ? 1 : 0.5
+                }}
+              >+ Add Item</button>
             </div>
 
             {dispatchItems.length === 0 ? (
@@ -347,6 +564,9 @@ export default function TransitManager({ user }) {
                     const matchCat = s.category ? s.category.toLowerCase().includes(query) : false;
                     return matchName || matchSize || matchCat;
                   });
+                  const availableQty = transferType === 'embroidery_to_shop' ? (stItem?.embroidery_quantity || 0) : (stItem?.workshop_quantity || 0);
+                  const sourceName = transferType === 'embroidery_to_shop' ? 'embroidery' : 'workshop';
+
                   return (
                     <div key={idx} className="grid gap-2 items-end" style={{ gridTemplateColumns: '1fr 100px 32px' }}>
                       <div className="space-y-1">
@@ -355,22 +575,28 @@ export default function TransitManager({ user }) {
                           type="text"
                           className="input text-xs py-1"
                           style={{ padding: '0.25rem 0.5rem', height: '28px' }}
-                          placeholder="🔍 Type to filter..."
+                          placeholder="Type to filter..."
                           value={item.filterText || ''}
                           onChange={e => updateDispatchItem(idx, 'filterText', e.target.value)}
                         />
                         <select className="input text-sm" value={item.stock_id} onChange={e => updateDispatchItem(idx, 'stock_id', e.target.value)}>
-                          <option value="">Select sweater/garment...</option>
-                          {filteredList.filter(s => (s.workshop_quantity || 0) > 0).map(s => (
-                            <option key={s.id} value={s.id}>
-                              {s.name} {s.size ? `(${s.size})` : ''} — {s.workshop_quantity} in workshop
-                            </option>
-                          ))}
+                          <option value="">Select garment...</option>
+                          {filteredList.filter(s => {
+                            const qty = transferType === 'embroidery_to_shop' ? (s.embroidery_quantity || 0) : (s.workshop_quantity || 0);
+                            return qty > 0;
+                          }).map(s => {
+                            const qty = transferType === 'embroidery_to_shop' ? (s.embroidery_quantity || 0) : (s.workshop_quantity || 0);
+                            return (
+                              <option key={s.id} value={s.id}>
+                                {s.name} {s.size ? `(${s.size})` : ''} — Available: {qty} ({sourceName})
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                       <div>
                         {idx === 0 && <p className="text-xs text-theme-muted mb-1">Qty to Send</p>}
-                        <input type="number" min="1" max={stItem?.workshop_quantity || undefined} className="input text-sm"
+                        <input type="number" min="1" max={availableQty || undefined} className="input text-sm"
                           value={item.qty_dispatched} onChange={e => updateDispatchItem(idx, 'qty_dispatched', e.target.value)} />
                       </div>
                       <button type="button" onClick={() => removeDispatchItem(idx)}
@@ -383,7 +609,7 @@ export default function TransitManager({ user }) {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t" style={{ borderColor: 'var(--border-light)' }}>
               <div>
                 <label className="label">Order Reference / Client Order Name</label>
                 <input className="input text-sm" value={orderName} onChange={e => setOrderName(e.target.value)} placeholder="e.g. St. Mary's School Blazers" />
@@ -396,12 +622,25 @@ export default function TransitManager({ user }) {
 
             <div>
               <label className="label">Dispatch Notes / Remarks</label>
-              <textarea className="input" rows={2} value={dispatchNotes} onChange={e => setDispatchNotes(e.target.value)} placeholder="e.g. Package labeled #B" />
+              <textarea className="input" rows={2} value={dispatchNotes} onChange={e => setDispatchNotes(e.target.value)} placeholder="e.g. Labeled package for embroidery branding" />
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button type="submit" disabled={savingDispatch} className="btn-primary flex-1">
-                {savingDispatch ? 'Dispatching...' : 'Confirm Dispatch & Deduct Workshop Stock'}
+              <button
+                type="submit"
+                disabled={savingDispatch || !transferType}
+                className="btn-primary flex-1"
+                style={{ opacity: (!transferType || savingDispatch) ? 0.5 : 1, cursor: (!transferType || savingDispatch) ? 'not-allowed' : 'pointer' }}
+              >
+                {savingDispatch
+                  ? 'Dispatching...'
+                  : !transferType
+                    ? 'Select a destination above first'
+                    : transferType === 'embroidery_to_shop'
+                      ? 'Confirm Dispatch & Deduct Embroidery Stock'
+                      : transferType === 'workshop_to_embroidery'
+                        ? 'Confirm Dispatch to Embroidery & Deduct Workshop Stock'
+                        : 'Confirm Dispatch & Deduct Workshop Stock'}
               </button>
               <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary">Cancel</button>
             </div>
@@ -411,7 +650,7 @@ export default function TransitManager({ user }) {
 
       {/* View Details / Check-In Modal */}
       {viewTransfer && (
-        <Modal title={`Dispatch #${viewTransfer.id} Details`} wide onClose={() => setViewTransfer(null)}>
+        <Modal title={`${getTransferTypeLabel(viewTransfer.transfer_type)} Dispatch #${viewTransfer.id} Details`} wide onClose={() => setViewTransfer(null)}>
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-muted)' }}>
@@ -466,7 +705,7 @@ export default function TransitManager({ user }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {viewTransfer.status !== 'pending' || user?.role === 'workshop' ? (
+                    {!canCheckIn(viewTransfer) ? (
                       // Read Only view
                       viewTransfer.items.map((item, idx) => (
                         <tr key={idx} style={{ borderTop: '1px solid var(--border-light)' }}>
@@ -474,7 +713,7 @@ export default function TransitManager({ user }) {
                           <td className="py-2.5 px-3 text-theme-secondary">{item.stock_size || '—'}</td>
                           <td className="py-2.5 px-3 text-center font-semibold text-theme-primary">{item.qty_dispatched}</td>
                           <td className="py-2.5 px-3 text-center font-semibold" style={{ color: item.qty_received === item.qty_dispatched ? '#22c55e' : '#ef4444' }}>
-                            {item.qty_received}
+                            {item.qty_received != null ? item.qty_received : '—'}
                           </td>
                         </tr>
                       ))
@@ -497,30 +736,67 @@ export default function TransitManager({ user }) {
               </div>
             </div>
 
-            {viewTransfer.status === 'pending' && user?.role !== 'workshop' && (
+            {canCheckIn(viewTransfer) && (
               <form onSubmit={handleCheckInSubmit} className="space-y-4 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                 {checkInError && <p className="text-sm p-2 rounded" style={{ background: '#fee2e2', color: '#991b1b' }}>{checkInError}</p>}
                 
                 <div>
                   <label className="label">Check-In Notes / Discrepancy Remarks</label>
-                  <input className="input" value={checkInNotes} onChange={e => setCheckInNotes(e.target.value)} placeholder="e.g. Received all items intact" />
+                  <input className="input" value={checkInNotes} onChange={e => setCheckInNotes(e.target.value)} placeholder="e.g. Confirmed all items received intact" />
                 </div>
 
                 <div className="flex gap-3">
                   <button type="submit" disabled={savingCheckIn} className="btn-primary flex-1">
-                    {savingCheckIn ? 'Saving Check-In...' : 'Confirm Arrival & Update Shop Stock'}
+                    {savingCheckIn ? 'Saving Check-In...' : (viewTransfer.transfer_type === 'workshop_to_embroidery' 
+                      ? 'Confirm Arrival & Update Embroidery Stock' 
+                      : 'Confirm Arrival & Update Shop Stock')}
                   </button>
                   <button type="button" onClick={() => setViewTransfer(null)} className="btn-secondary">Cancel</button>
                 </div>
               </form>
             )}
 
-            {(viewTransfer.status !== 'pending' || user?.role === 'workshop') && (
+            {!canCheckIn(viewTransfer) && (
               <button onClick={() => setViewTransfer(null)} className="btn-secondary w-full">Close</button>
             )}
           </div>
         </Modal>
       )}
+
+      {/* Admin: Correct Dispatch Type Modal */}
+      {correctingTransfer && (
+        <Modal title={`✏️ Correct Dispatch #${correctingTransfer.id} Type`} onClose={() => setCorrectingTransfer(null)}>
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg text-sm" style={{ background: '#fef3c7', color: '#92400e' }}>
+              ⚠️ This dispatch was saved as <strong>{getTransferTypeLabel(correctingTransfer.transfer_type)}</strong>.
+              Use this tool to reassign it to the correct destination. Only pending dispatches can be corrected.
+            </div>
+            <div>
+              <label className="label">Correct Destination</label>
+              <select className="input text-sm font-semibold" value={correctType} onChange={e => setCorrectType(e.target.value)}>
+                <option value="workshop_to_shop">Workshop ➔ Retail Shop (Plain Garments)</option>
+                <option value="workshop_to_embroidery">Workshop ➔ Embroidery Shop (For Branding)</option>
+                <option value="embroidery_to_shop">Embroidery Shop ➔ Retail Shop (Finished Garments)</option>
+              </select>
+            </div>
+            {correctError && (
+              <p className="text-sm p-2 rounded" style={{ background: '#fee2e2', color: '#991b1b' }}>{correctError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={handleCorrectType}
+                disabled={savingCorrect || correctType === correctingTransfer.transfer_type}
+                className="btn-primary flex-1"
+                style={{ opacity: (savingCorrect || correctType === correctingTransfer.transfer_type) ? 0.5 : 1 }}
+              >
+                {savingCorrect ? 'Saving...' : correctType === correctingTransfer.transfer_type ? 'No change selected' : `Save — Change to ${getTransferTypeLabel(correctType)}`}
+              </button>
+              <button onClick={() => setCorrectingTransfer(null)} className="btn-secondary">Cancel</button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
+
   );
 }

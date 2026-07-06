@@ -80,10 +80,19 @@ export default function App() {
   const [dark, setDark] = useState(getInitialDark);
 
   useEffect(() => {
-    if (user?.role === 'workshop' && !['transfers', 'stock', 'orders'].includes(activePage)) {
+    if ((user?.role === 'workshop' || user?.role === 'embroidery') && !['transfers', 'stock', 'orders'].includes(activePage)) {
       setActivePage('transfers');
     }
   }, [user, activePage]);
+
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      setToken(null);
+      setUser(null);
+    };
+    window.addEventListener('auth-logout', handleAuthLogout);
+    return () => window.removeEventListener('auth-logout', handleAuthLogout);
+  }, []);
 
   const toggleDark = () => {
     const next = !dark;
@@ -116,7 +125,7 @@ export default function App() {
       case 'stock':     return <StockManager user={user} />;
       case 'transfers': return <TransitManager user={user} />;
       case 'orders':    return <OrdersManager user={user} />;
-      case 'clients':   return user?.role !== 'workshop' ? <ClientsManager user={user} /> : <Dashboard />;
+      case 'clients':   return (user?.role !== 'workshop' && user?.role !== 'embroidery') ? <ClientsManager user={user} /> : <Dashboard />;
       case 'users':     return user?.role === 'admin' ? <UserManager /> : <Dashboard />;
       case 'analytics': return user?.role === 'admin' ? <Analytics /> : <Dashboard />;
       default:          return <Dashboard />;
@@ -152,20 +161,19 @@ export default function App() {
           </button>
           {/* Mobile brand */}
           <div className="flex items-center gap-2">
-            <div style={{
-              width:'28px', height:'28px', borderRadius:'7px', flexShrink:0,
-              background:'linear-gradient(135deg,#4f46e5,#7c3aed)',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:'13px',
-            }}>👔</div>
+            <img
+              src="/davannis-logo.svg"
+              alt="Davannis Uniforms"
+              style={{ width: '34px', height: '40px', flexShrink: 0, objectFit: 'contain' }}
+            />
             <div style={{lineHeight:1.1}}>
               <div style={{
                 fontFamily:"'Playfair Display',Georgia,serif",
                 fontWeight:700, fontSize:'13px',
-                background:'linear-gradient(135deg,#4f46e5,#7c3aed)',
+                background:'linear-gradient(135deg,#061a45,#d9a21b)',
                 WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
                 backgroundClip:'text',
-              }}>Davvanis</div>
+              }}>Davannis</div>
               <div style={{
                 fontFamily:"'Inter',sans-serif", fontWeight:600,
                 fontSize:'9px', letterSpacing:'0.1em',

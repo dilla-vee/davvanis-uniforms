@@ -2,7 +2,7 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
   // Dynamically build navigation items based on user role
   const navItems = [];
 
-  if (user?.role === 'workshop') {
+  if (user?.role === 'workshop' || user?.role === 'embroidery') {
     navItems.push({ id: 'transfers', label: 'Transit', icon: '🚚' });
     navItems.push({ id: 'stock', label: 'Stock', icon: '📦' });
     navItems.push({ id: 'orders', label: 'Orders', icon: '📋' });
@@ -24,26 +24,23 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
       {/* Logo */}
       <div className="px-4 py-4 theme-border-light" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center gap-3">
-          {/* Icon badge */}
-          <div style={{
-            width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0,
-            background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(79,70,229,0.35)',
-            fontSize: '18px',
-          }}>👔</div>
+          <img
+            src="/davannis-logo.svg"
+            alt="Davannis Uniforms"
+            style={{ width: '42px', height: '50px', flexShrink: 0, objectFit: 'contain' }}
+          />
           <div style={{ lineHeight: 1.1 }}>
             <div style={{
               fontFamily: "'Playfair Display', Georgia, serif",
               fontWeight: 700,
               fontSize: '15px',
-              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+              background: 'linear-gradient(135deg, #061a45, #d9a21b)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
               letterSpacing: '0.01em',
             }}>
-              Davvanis
+              Davannis
             </div>
             <div style={{
               fontFamily: "'Inter', sans-serif",
@@ -145,7 +142,7 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
             }} />
           </div>
         </div>
-        <p className="text-[9px] text-theme-muted text-center mt-2.5">Davvanis Uniforms © 2026</p>
+        <p className="text-[9px] text-theme-muted text-center mt-2.5">Davannis Uniforms © 2026</p>
       </div>
     </aside>
   );

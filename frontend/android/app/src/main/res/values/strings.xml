@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">UniStore</string>
-    <string name="title_activity_main">UniStore</string>
+    <string name="app_name">Davannis Uniforms</string>
+    <string name="title_activity_main">Davannis Uniforms</string>
     <string name="package_name">app.davvanis.uniformstore</string>
     <string name="custom_url_scheme">app.davvanis.uniformstore</string>
 </resources>

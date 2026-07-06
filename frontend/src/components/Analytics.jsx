@@ -4,7 +4,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, Cell, PieChart, Pie 
 } from 'recharts';
-import { ShoppingBag, Landmark, AlertTriangle, Layers, TrendingUp } from 'lucide-react';
+import { ShoppingBag, Landmark, AlertTriangle, Layers, TrendingUp, Factory, Scissors } from 'lucide-react';
 
 const COLORS = ['#00e676', '#3b82f6', '#fbb0e9', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'];
 const KSH = 'Ksh ';
@@ -115,6 +115,10 @@ export default function Analytics() {
   const categories = summary?.category_breakdown || [];
   const totalValue = summary?.total_value ?? 0;
 
+  // Compute total workshop and embroidery quantities from stock
+  const totalWorkshopUnits = allStock.reduce((sum, item) => sum + (item.workshop_quantity || 0), 0);
+  const totalEmbroideryUnits = allStock.reduce((sum, item) => sum + (item.embroidery_quantity || 0), 0);
+
   // Format category breakdown for Pie Chart
   const pieData = categories.map(cat => ({
     name: cat.name,
@@ -168,6 +172,26 @@ export default function Analytics() {
           bg="rgba(245,158,11,0.1)" 
           sparkData={SPARKLINE_4} 
           sparkColor="#f59e0b" 
+        />
+      </div>
+
+      {/* Workshop & Embroidery Stock Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <StatCard
+          icon={<Factory className="text-indigo-400" />}
+          label="Workshop Inventory"
+          value={totalWorkshopUnits.toLocaleString() + ' units'}
+          bg="rgba(99,102,241,0.1)"
+          sparkData={SPARKLINE_3}
+          sparkColor="#6366f1"
+        />
+        <StatCard
+          icon={<Scissors className="text-purple-400" />}
+          label="Embroidery Inventory"
+          value={totalEmbroideryUnits.toLocaleString() + ' units'}
+          bg="rgba(168,85,247,0.1)"
+          sparkData={SPARKLINE_2}
+          sparkColor="#a855f7"
         />
       </div>
 
@@ -287,7 +311,9 @@ export default function Analytics() {
                     <th className="text-left py-2.5 px-4 font-semibold">Name</th>
                     <th className="text-left py-2.5 px-4 font-semibold">Category</th>
                     <th className="text-left py-2.5 px-4 font-semibold">Size</th>
-                    <th className="text-left py-2.5 px-4 font-semibold">Quantity</th>
+                    <th className="text-left py-2.5 px-4 font-semibold">Shop Qty</th>
+                    <th className="text-left py-2.5 px-4 font-semibold">Workshop Qty</th>
+                    <th className="text-left py-2.5 px-4 font-semibold">Embroidery Qty</th>
                     <th className="text-left py-2.5 px-4 font-semibold">Value</th>
                     <th className="text-left py-2.5 px-4 font-semibold">Status</th>
                   </tr>
@@ -301,6 +327,8 @@ export default function Analytics() {
                         <td className="py-2 px-4">{item.category || '--'}</td>
                         <td className="py-2 px-4">{item.size || '--'}</td>
                         <td className="py-2 px-4 text-theme-primary font-bold">{item.quantity}</td>
+                        <td className="py-2 px-4 font-semibold" style={{ color: '#6366f1' }}>{item.workshop_quantity || 0}</td>
+                        <td className="py-2 px-4 font-semibold" style={{ color: '#a855f7' }}>{item.embroidery_quantity || 0}</td>
                         <td className="py-2 px-4 text-theme-primary">{KSH}{val.toLocaleString()}</td>
                         <td className="py-2 px-4">
                           <StatusPill quantity={item.quantity} threshold={item.low_stock_threshold} />

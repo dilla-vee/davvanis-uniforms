@@ -8,6 +8,7 @@ const parseStock = r => ({
   price:               r.price != null ? parseFloat(r.price) : null,
   low_stock_threshold: parseInt(r.low_stock_threshold) || 10,
   workshop_quantity:   parseInt(r.workshop_quantity) || 0,
+  embroidery_quantity: parseInt(r.embroidery_quantity) || 0,
   source_type:         r.source_type || 'purchased',
   barcode:             r.barcode || null,
 });
@@ -130,9 +131,29 @@ router.get('/by-barcode/:barcode', async (req, res) => {
 // GET /api/stock/transfers
 router.get('/transfers', async (req, res) => {
   try {
+    // Determine which transfer types this role is allowed to see
+    const role = req.user?.role;
+    let allowedTypes = null; // null = no restriction (admin)
+    if (role === 'attendant') {
+      // Shop attendants only see dispatches coming to the shop
+      allowedTypes = ['workshop_to_shop', 'embroidery_to_shop'];
+    } else if (role === 'embroidery') {
+      // Embroidery attendants see incoming from workshop + their own outgoing to shop
+      allowedTypes = ['workshop_to_embroidery', 'embroidery_to_shop'];
+    } else if (role === 'workshop') {
+      // Workshop attendants only see transfers they dispatched
+      allowedTypes = ['workshop_to_shop', 'workshop_to_embroidery'];
+    }
+    // admin: allowedTypes stays null — fetches everything
+
+    const whereClause = allowedTypes
+      ? `WHERE st.transfer_type = ANY($1::text[])`
+      : '';
+    const queryParams = allowedTypes ? [allowedTypes] : [];
+
     const transfers = await db.query_rows(
       `SELECT st.id, st.transfer_date::text AS transfer_date, st.received_date::text AS received_date, st.status, st.notes,
-          st.dispatched_by, st.carrier_name, st.order_name, st.received_by,
+          st.dispatched_by, st.carrier_name, st.order_name, st.received_by, st.transfer_type,
          json_agg(json_build_object(
            'id',             sti.id,
            'stock_id',       sti.stock_id,
@@ -144,8 +165,10 @@ router.get('/transfers', async (req, res) => {
        FROM stock_transfers st
        LEFT JOIN stock_transfer_items sti ON sti.transfer_id = st.id
        LEFT JOIN stock s ON s.id = sti.stock_id
+       ${whereClause}
        GROUP BY st.id
-       ORDER BY st.transfer_date DESC`
+       ORDER BY st.transfer_date DESC`,
+      queryParams
     );
     res.json(transfers.map(t => ({
       ...t,
@@ -158,12 +181,30 @@ router.get('/transfers', async (req, res) => {
 
 // POST /api/stock/transfers (Dispatch)
 router.post('/transfers', async (req, res) => {
-  if (req.user?.role === 'attendant') {
-    return res.status(403).json({ error: 'Access denied: Shop attendants cannot dispatch stock.' });
+  const { items, notes, carrier_name, order_name, transfer_type } = req.body;
+
+  // Strict validation: transfer_type must be explicitly provided and valid
+  const validTypes = ['workshop_to_shop', 'workshop_to_embroidery', 'embroidery_to_shop'];
+  if (!transfer_type || !validTypes.includes(transfer_type)) {
+    return res.status(400).json({
+      error: `Invalid or missing transfer_type. Must be one of: ${validTypes.join(', ')}. Received: "${transfer_type || '(empty)'}"`
+    });
   }
+  
+  // Role validation based on transfer_type
+  if (transfer_type === 'embroidery_to_shop') {
+    if (req.user?.role !== 'embroidery' && req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied: Only embroidery attendants or administrators can dispatch from embroidery.' });
+    }
+  } else {
+    // workshop_to_shop or workshop_to_embroidery
+    if (req.user?.role !== 'workshop' && req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied: Only workshop attendants or administrators can dispatch from the workshop.' });
+    }
+  }
+
   const client = await db.connect();
   try {
-    const { items, notes, carrier_name, order_name } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'At least one item is required for dispatch' });
     }
@@ -172,7 +213,7 @@ router.post('/transfers', async (req, res) => {
 
     for (const item of items) {
       const stockRow = await client.query(
-        'SELECT id, workshop_quantity, name, source_type FROM stock WHERE id = $1 FOR UPDATE',
+        'SELECT id, workshop_quantity, embroidery_quantity, name, source_type FROM stock WHERE id = $1 FOR UPDATE',
         [item.stock_id]
       );
       const stockItem = stockRow.rows[0];
@@ -180,21 +221,30 @@ router.post('/transfers', async (req, res) => {
         throw new Error(`Stock item with ID ${item.stock_id} not found`);
       }
       if (stockItem.source_type !== 'manufactured') {
-        throw new Error(`Item "${stockItem.name}" is not manufactured and cannot be dispatched from the workshop.`);
+        throw new Error(`Item "${stockItem.name}" is not manufactured and cannot be dispatched.`);
       }
-      const available = parseInt(stockItem.workshop_quantity) || 0;
+      
       const dispatching = parseInt(item.qty_dispatched) || 0;
       if (dispatching <= 0) {
         throw new Error(`Dispatch quantity must be greater than 0 for "${stockItem.name}"`);
       }
-      if (dispatching > available) {
-        throw new Error(`Insufficient workshop stock for "${stockItem.name}" — trying to dispatch ${dispatching} but only ${available} available.`);
+
+      if (transfer_type === 'embroidery_to_shop') {
+        const available = parseInt(stockItem.embroidery_quantity) || 0;
+        if (dispatching > available) {
+          throw new Error(`Insufficient embroidery stock for "${stockItem.name}" — trying to dispatch ${dispatching} but only ${available} available.`);
+        }
+      } else {
+        const available = parseInt(stockItem.workshop_quantity) || 0;
+        if (dispatching > available) {
+          throw new Error(`Insufficient workshop stock for "${stockItem.name}" — trying to dispatch ${dispatching} but only ${available} available.`);
+        }
       }
     }
 
     const transferRow = await client.query(
-      `INSERT INTO stock_transfers (status, notes, dispatched_by, carrier_name, order_name) VALUES ('pending', $1, $2, $3, $4) RETURNING *`,
-      [notes || null, req.user?.name || req.user?.username || 'System', carrier_name || null, order_name || null]
+      `INSERT INTO stock_transfers (status, notes, dispatched_by, carrier_name, order_name, transfer_type) VALUES ('pending', $1, $2, $3, $4, $5) RETURNING *`,
+      [notes || null, req.user?.name || req.user?.username || 'System', carrier_name || null, order_name || null, transfer_type]
     );
     const transferId = transferRow.rows[0].id;
 
@@ -203,10 +253,17 @@ router.post('/transfers', async (req, res) => {
         `INSERT INTO stock_transfer_items (transfer_id, stock_id, qty_dispatched) VALUES ($1, $2, $3)`,
         [transferId, item.stock_id, parseInt(item.qty_dispatched)]
       );
-      await client.query(
-        `UPDATE stock SET workshop_quantity = workshop_quantity - $1, updated_at = NOW() WHERE id = $2`,
-        [parseInt(item.qty_dispatched), item.stock_id]
-      );
+      if (transfer_type === 'embroidery_to_shop') {
+        await client.query(
+          `UPDATE stock SET embroidery_quantity = embroidery_quantity - $1, updated_at = NOW() WHERE id = $2`,
+          [parseInt(item.qty_dispatched), item.stock_id]
+        );
+      } else {
+        await client.query(
+          `UPDATE stock SET workshop_quantity = workshop_quantity - $1, updated_at = NOW() WHERE id = $2`,
+          [parseInt(item.qty_dispatched), item.stock_id]
+        );
+      }
     }
 
     await client.query('COMMIT');
@@ -221,9 +278,6 @@ router.post('/transfers', async (req, res) => {
 
 // PUT /api/stock/transfers/:id/checkin (Check-in)
 router.put('/transfers/:id/checkin', async (req, res) => {
-  if (req.user?.role === 'workshop') {
-    return res.status(403).json({ error: 'Access denied: Workshop attendants cannot confirm receipt.' });
-  }
   const client = await db.connect();
   try {
     const transferId = req.params.id;
@@ -245,6 +299,19 @@ router.put('/transfers/:id/checkin', async (req, res) => {
     }
     if (transfer.status !== 'pending') {
       throw new Error(`Transfer has already been checked in. Current status: ${transfer.status}`);
+    }
+
+    // Role validation based on transfer_type
+    const type = transfer.transfer_type || 'workshop_to_shop';
+    if (type === 'workshop_to_embroidery') {
+      if (req.user?.role !== 'embroidery' && req.user?.role !== 'admin') {
+        throw new Error('Access denied: Only embroidery attendants or administrators can confirm receipt of embroidery dispatches.');
+      }
+    } else {
+      // workshop_to_shop or embroidery_to_shop
+      if (req.user?.role !== 'attendant' && req.user?.role !== 'admin') {
+        throw new Error('Access denied: Only shop attendants or administrators can confirm receipt of shop dispatches.');
+      }
     }
 
     let hasMismatch = false;
@@ -275,10 +342,18 @@ router.put('/transfers/:id/checkin', async (req, res) => {
         [received, transferItem.id]
       );
 
-      await client.query(
-        'UPDATE stock SET quantity = quantity + $1, updated_at = NOW() WHERE id = $2',
-        [received, item.stock_id]
-      );
+      if (type === 'workshop_to_embroidery') {
+        await client.query(
+          'UPDATE stock SET embroidery_quantity = embroidery_quantity + $1, updated_at = NOW() WHERE id = $2',
+          [received, item.stock_id]
+        );
+      } else {
+        // workshop_to_shop or embroidery_to_shop
+        await client.query(
+          'UPDATE stock SET quantity = quantity + $1, updated_at = NOW() WHERE id = $2',
+          [received, item.stock_id]
+        );
+      }
     }
 
     const allItemsRow = await client.query(
@@ -308,6 +383,32 @@ router.put('/transfers/:id/checkin', async (req, res) => {
   }
 });
 
+// PATCH /api/stock/transfers/:id/type  (Admin only — correct a wrongly-saved transfer type)
+router.patch('/transfers/:id/type', async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied: Only administrators can correct a dispatch type.' });
+    }
+    const { transfer_type } = req.body;
+    const validTypes = ['workshop_to_shop', 'workshop_to_embroidery', 'embroidery_to_shop'];
+    if (!transfer_type || !validTypes.includes(transfer_type)) {
+      return res.status(400).json({ error: `Invalid transfer_type. Must be one of: ${validTypes.join(', ')}` });
+    }
+    const existing = await db.query_one('SELECT * FROM stock_transfers WHERE id = $1', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Transfer not found' });
+    if (existing.status !== 'pending') {
+      return res.status(400).json({ error: 'Can only correct the type of a pending (not yet received) dispatch.' });
+    }
+    const updated = await db.query_one(
+      'UPDATE stock_transfers SET transfer_type = $1 WHERE id = $2 RETURNING *',
+      [transfer_type, req.params.id]
+    );
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/stock/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -320,11 +421,11 @@ router.get('/:id', async (req, res) => {
 // POST /api/stock
 router.post('/', async (req, res) => {
   try {
-    const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, source_type } = req.body;
+    const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
     const item = await db.query_one(
-      `INSERT INTO stock (name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, source_type, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()) RETURNING *`,
+      `INSERT INTO stock (name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW()) RETURNING *`,
       [
         name,
         category || null,
@@ -334,6 +435,7 @@ router.post('/', async (req, res) => {
         low_stock_threshold !== undefined ? parseInt(low_stock_threshold) : 10,
         barcode || null,
         workshop_quantity !== undefined ? parseInt(workshop_quantity) : 0,
+        embroidery_quantity !== undefined ? parseInt(embroidery_quantity) : 0,
         source_type || 'purchased'
       ]
     );
@@ -346,10 +448,10 @@ router.put('/:id', async (req, res) => {
   try {
     const existing = await db.query_one('SELECT * FROM stock WHERE id = $1', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Stock item not found' });
-    const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, source_type } = req.body;
+    const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type } = req.body;
     const updated = await db.query_one(
       `UPDATE stock SET name=$1, category=$2, size=$3, quantity=$4,
-        price=$5, low_stock_threshold=$6, barcode=$7, workshop_quantity=$8, source_type=$9, updated_at=NOW() WHERE id=$10 RETURNING *`,
+        price=$5, low_stock_threshold=$6, barcode=$7, workshop_quantity=$8, embroidery_quantity=$9, source_type=$10, updated_at=NOW() WHERE id=$11 RETURNING *`,
       [
         name  !== undefined ? name   : existing.name,
         category !== undefined ? category : existing.category,
@@ -359,6 +461,7 @@ router.put('/:id', async (req, res) => {
         low_stock_threshold !== undefined ? parseInt(low_stock_threshold) : existing.low_stock_threshold,
         barcode !== undefined ? (barcode || null) : existing.barcode,
         workshop_quantity !== undefined ? parseInt(workshop_quantity) : existing.workshop_quantity,
+        embroidery_quantity !== undefined ? parseInt(embroidery_quantity) : existing.embroidery_quantity,
         source_type !== undefined ? source_type : existing.source_type,
         req.params.id,
       ]

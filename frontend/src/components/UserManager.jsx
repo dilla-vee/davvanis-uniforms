@@ -231,6 +231,7 @@ export default function UserManager() {
               <select className="input" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
                 <option value="attendant">Shop Attendant (Restricted Rights)</option>
                 <option value="workshop">Workshop Attendant (Transit Dispatch Only)</option>
+                <option value="embroidery">Embroidery Attendant (Transit Check-in & Dispatch)</option>
                 <option value="admin">System Administrator (Full Access)</option>
               </select>
             </div>

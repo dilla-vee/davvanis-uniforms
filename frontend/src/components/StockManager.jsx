@@ -665,8 +665,10 @@ export default function StockManager({ user }) {
   const [qtyValue, setQtyValue] = useState('');
   const [editingWorkshopQty, setEditingWorkshopQty] = useState(null);
   const [workshopQtyValue, setWorkshopQtyValue] = useState('');
+  const [editingEmbroideryQty, setEditingEmbroideryQty] = useState(null);
+  const [embroideryQtyValue, setEmbroideryQtyValue] = useState('');
   const qtyRef = useRef(null);
-  const [form, setForm] = useState({ name:'', category:'', size:'', quantity:'', price:'', low_stock_threshold:'10', barcode:'', workshop_quantity:'0', source_type:'purchased' });
+  const [form, setForm] = useState({ name:'', category:'', size:'', quantity:'', price:'', low_stock_threshold:'10', barcode:'', workshop_quantity:'0', embroidery_quantity:'0', source_type:'purchased' });
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [showSales, setShowSales] = useState(false);
@@ -685,10 +687,10 @@ export default function StockManager({ user }) {
     catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { fetchStock(); }, []);
-  useEffect(() => { if ((editingQty || editingWorkshopQty) && qtyRef.current) qtyRef.current.focus(); }, [editingQty, editingWorkshopQty]);
+  useEffect(() => { if ((editingQty || editingWorkshopQty || editingEmbroideryQty) && qtyRef.current) qtyRef.current.focus(); }, [editingQty, editingWorkshopQty, editingEmbroideryQty]);
 
-  const openAdd = () => { setEditItem(null); setForm({ name:'', category:'', size:'', quantity:user?.role === 'workshop' ? '0' : '', price:'', low_stock_threshold:'10', barcode:'', workshop_quantity:'0', source_type:user?.role === 'workshop' ? 'manufactured' : 'purchased' }); setFormError(''); setShowModal(true); };
-  const openEdit = item => { setEditItem(item); setForm({ name:item.name||'', category:item.category||'', size:item.size||'', quantity:item.quantity!=null?String(item.quantity):'', price:item.price!=null?String(item.price):'', low_stock_threshold:item.low_stock_threshold!=null?String(item.low_stock_threshold):'10', barcode:item.barcode||'', workshop_quantity:item.workshop_quantity!=null?String(item.workshop_quantity):'0', source_type:item.source_type||'purchased' }); setFormError(''); setShowModal(true); };
+  const openAdd = () => { setEditItem(null); setForm({ name:'', category:'', size:'', quantity:user?.role === 'workshop' || user?.role === 'embroidery' ? '0' : '', price:'', low_stock_threshold:'10', barcode:'', workshop_quantity:'0', embroidery_quantity:'0', source_type:user?.role === 'workshop' ? 'manufactured' : 'purchased' }); setFormError(''); setShowModal(true); };
+  const openEdit = item => { setEditItem(item); setForm({ name:item.name||'', category:item.category||'', size:item.size||'', quantity:item.quantity!=null?String(item.quantity):'', price:item.price!=null?String(item.price):'', low_stock_threshold:item.low_stock_threshold!=null?String(item.low_stock_threshold):'10', barcode:item.barcode||'', workshop_quantity:item.workshop_quantity!=null?String(item.workshop_quantity):'0', embroidery_quantity:item.embroidery_quantity!=null?String(item.embroidery_quantity):'0', source_type:item.source_type||'purchased' }); setFormError(''); setShowModal(true); };
 
   const handleSubmit = async e => {
     e.preventDefault();
@@ -704,8 +706,10 @@ export default function StockManager({ user }) {
         if (existing) {
           const qtyToAdd = form.quantity !== '' ? parseInt(form.quantity) : 0;
           const workshopQtyToAdd = form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0;
+          const embroideryQtyToAdd = form.embroidery_quantity !== '' ? parseInt(form.embroidery_quantity) : 0;
           const newQty = (existing.quantity || 0) + qtyToAdd;
           const newWorkshopQty = (existing.workshop_quantity || 0) + workshopQtyToAdd;
+          const newEmbroideryQty = (existing.embroidery_quantity || 0) + embroideryQtyToAdd;
           
           const r = await apiFetch(`/api/stock/${existing.id}`, {
             method: 'PUT',
@@ -713,6 +717,7 @@ export default function StockManager({ user }) {
             body: JSON.stringify({
               quantity: newQty,
               workshop_quantity: newWorkshopQty,
+              embroidery_quantity: newEmbroideryQty,
               price: form.price !== '' ? parseFloat(form.price) : existing.price
             })
           });
@@ -732,6 +737,7 @@ export default function StockManager({ user }) {
           low_stock_threshold:form.low_stock_threshold!==''?parseInt(form.low_stock_threshold):10,
           barcode:form.barcode.trim()||null,
           workshop_quantity:form.workshop_quantity!==''?parseInt(form.workshop_quantity):0,
+          embroidery_quantity:form.embroidery_quantity!==''?parseInt(form.embroidery_quantity):0,
           source_type:form.source_type
         }),
       });
@@ -797,6 +803,15 @@ export default function StockManager({ user }) {
     setEditingWorkshopQty(null);
   };
 
+  const saveEmbroideryQty = async item => {
+    const qty = parseInt(embroideryQtyValue);
+    if (!isNaN(qty) && qty >= 0) {
+      await apiFetch(`/api/stock/${item.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ embroidery_quantity:qty }) });
+      await fetchStock();
+    }
+    setEditingEmbroideryQty(null);
+  };
+
   const qtyStyle = item => {
     if (item.quantity <= item.low_stock_threshold) return { color:'#ef4444', fontWeight:'bold' };
     if (item.quantity <= item.low_stock_threshold*2) return { color:'#f59e0b', fontWeight:'600' };
@@ -812,13 +827,14 @@ export default function StockManager({ user }) {
     : stock
   ).filter(item => {
     if (showZeroStock) return true;
-    return (item.quantity || 0) > 0 || (item.workshop_quantity || 0) > 0;
+    return (item.quantity || 0) > 0 || (item.workshop_quantity || 0) > 0 || (item.embroidery_quantity || 0) > 0;
   });
 
   const sweaters = displayStock.filter(item => item.category === 'Sweaters');
   const nonSweaters = displayStock.filter(item => item.category !== 'Sweaters');
   const totalSweaterShopQty = sweaters.reduce((sum, item) => sum + (item.quantity || 0), 0);
   const totalSweaterWorkshopQty = sweaters.reduce((sum, item) => sum + (item.workshop_quantity || 0), 0);
+  const totalSweaterEmbroideryQty = sweaters.reduce((sum, item) => sum + (item.embroidery_quantity || 0), 0);
 
   // Group sweaters by style name
   const sweatersGroupedByStyle = {};
@@ -887,7 +903,7 @@ export default function StockManager({ user }) {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead style={{ backgroundColor:'var(--bg-muted)', borderBottom:'1px solid var(--border)' }}>
-                  <tr>{['Name','Category','Size','Source','Shop Qty','Workshop Qty','Price','Barcode','Actions'].map(h=>(
+                  <tr>{['Name','Category','Size','Source','Shop Qty','Workshop Qty','Embroidery Qty','Price','Barcode','Actions'].map(h=>(
                     <th key={h} className="text-left py-3 px-4 text-xs uppercase tracking-wide text-theme-secondary font-medium">{h}</th>
                   ))}</tr>
                 </thead>
@@ -922,6 +938,11 @@ export default function StockManager({ user }) {
                               )
                             ) : '—'}
                           </td>
+                          <td className="py-3 px-4 text-theme-secondary">
+                            {item.source_type === 'manufactured' ? (
+                              <span className="font-semibold" style={{ color: '#a855f7' }}>{item.embroidery_quantity || 0}</span>
+                            ) : '—'}
+                          </td>
                           <td className="py-3 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
                           <td className="py-3 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
                           <td className="py-3 px-4">
@@ -940,6 +961,7 @@ export default function StockManager({ user }) {
                     // Render group with expander
                     const totalShopQty = styleItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
                     const totalWorkshopQty = styleItems.reduce((sum, item) => sum + (item.workshop_quantity || 0), 0);
+                    const totalEmbroideryQty = styleItems.reduce((sum, item) => sum + (item.embroidery_quantity || 0), 0);
                     const firstItem = styleItems[0];
                     const isExpanded = !!expandedStyles[styleName];
 
@@ -961,6 +983,7 @@ export default function StockManager({ user }) {
                           <td className="py-3 px-4 text-theme-secondary capitalize">{firstItem.source_type}</td>
                           <td className="py-3 px-4 text-indigo-600 font-bold">{totalShopQty}</td>
                           <td className="py-3 px-4 text-indigo-600 font-bold">{totalWorkshopQty}</td>
+                          <td className="py-3 px-4 font-bold" style={{ color: '#a855f7' }}>{totalEmbroideryQty > 0 ? totalEmbroideryQty : '—'}</td>
                           <td className="py-3 px-4 text-theme-secondary">—</td>
                           <td className="py-3 px-4 text-theme-secondary">—</td>
                           <td className="py-3 px-4">
@@ -999,6 +1022,11 @@ export default function StockManager({ user }) {
                                 )
                               ) : '—'}
                             </td>
+                            <td className="py-2.5 px-4 text-theme-secondary">
+                              {item.source_type === 'manufactured' ? (
+                                <span className="font-semibold" style={{ color: '#a855f7' }}>{item.embroidery_quantity || 0}</span>
+                              ) : '—'}
+                            </td>
                             <td className="py-2.5 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
                             <td className="py-2.5 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
                             <td className="py-2.5 px-4">
@@ -1034,6 +1062,7 @@ export default function StockManager({ user }) {
                         <td className="py-3 px-4 text-theme-secondary capitalize">Mixed</td>
                         <td className="py-3 px-4 text-indigo-600 font-bold">{totalSweaterShopQty}</td>
                         <td className="py-3 px-4 text-indigo-600 font-bold">{totalSweaterWorkshopQty}</td>
+                        <td className="py-3 px-4 font-bold" style={{ color: '#a855f7' }}>{totalSweaterEmbroideryQty > 0 ? totalSweaterEmbroideryQty : '—'}</td>
                         <td className="py-3 px-4 text-theme-secondary">—</td>
                         <td className="py-3 px-4 text-theme-secondary">—</td>
                         <td className="py-3 px-4">
@@ -1049,6 +1078,7 @@ export default function StockManager({ user }) {
                         const styleItems = sweatersGroupedByStyle[styleName];
                         const styleShopQty = styleItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
                         const styleWorkshopQty = styleItems.reduce((sum, item) => sum + (item.workshop_quantity || 0), 0);
+                        const styleEmbroideryQty = styleItems.reduce((sum, item) => sum + (item.embroidery_quantity || 0), 0);
                         const isStyleExpanded = !!expandedStyles[styleName];
 
                         return (
@@ -1070,6 +1100,7 @@ export default function StockManager({ user }) {
                               <td className="py-2.5 px-4 text-theme-secondary capitalize">Manufactured</td>
                               <td className="py-2.5 px-4 text-theme-primary font-semibold">{styleShopQty}</td>
                               <td className="py-2.5 px-4 text-theme-primary font-semibold">{styleWorkshopQty}</td>
+                              <td className="py-2.5 px-4 font-semibold" style={{ color: '#a855f7' }}>{styleEmbroideryQty > 0 ? styleEmbroideryQty : '—'}</td>
                               <td className="py-2.5 px-4 text-theme-secondary">—</td>
                               <td className="py-2.5 px-4 text-theme-secondary">—</td>
                               <td className="py-2.5 px-4">
@@ -1108,6 +1139,9 @@ export default function StockManager({ user }) {
                                       <span className="font-semibold text-theme-primary">{item.workshop_quantity}</span>
                                     )
                                   ) : '—'}
+                                </td>
+                                <td className="py-2 px-4 text-theme-secondary">
+                                  <span className="font-semibold" style={{ color: '#a855f7' }}>{item.embroidery_quantity || 0}</span>
                                 </td>
                                 <td className="py-2 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
                                 <td className="py-2 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>

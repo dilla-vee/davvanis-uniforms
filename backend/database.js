@@ -136,6 +136,7 @@ async function initDB() {
       ALTER TABLE stock ADD COLUMN IF NOT EXISTS barcode TEXT UNIQUE;
       ALTER TABLE stock ADD COLUMN IF NOT EXISTS workshop_quantity INTEGER DEFAULT 0;
       ALTER TABLE stock ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'purchased';
+      ALTER TABLE stock ADD COLUMN IF NOT EXISTS embroidery_quantity INTEGER DEFAULT 0;
     `);
 
     // Migration for stock transfers tracking details:
@@ -144,6 +145,7 @@ async function initDB() {
       ALTER TABLE stock_transfers ADD COLUMN IF NOT EXISTS carrier_name TEXT;
       ALTER TABLE stock_transfers ADD COLUMN IF NOT EXISTS order_name TEXT;
       ALTER TABLE stock_transfers ADD COLUMN IF NOT EXISTS received_by TEXT;
+      ALTER TABLE stock_transfers ADD COLUMN IF NOT EXISTS transfer_type TEXT DEFAULT 'workshop_to_shop';
     `);
 
     // Create database indexes for scaling and search optimization
