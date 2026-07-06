@@ -2,7 +2,9 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
   // Dynamically build navigation items based on user role
   const navItems = [];
 
-  if (user?.role === 'workshop' || user?.role === 'embroidery') {
+  if (user?.role === 'embroidery') {
+    navItems.push({ id: 'transfers', label: 'Transit', icon: '🚚' });
+  } else if (user?.role === 'workshop') {
     navItems.push({ id: 'transfers', label: 'Transit', icon: '🚚' });
     navItems.push({ id: 'stock', label: 'Stock', icon: '📦' });
     navItems.push({ id: 'orders', label: 'Orders', icon: '📋' });
