@@ -120,8 +120,18 @@ router.post('/sales', async (req, res) => {
 // GET /api/stock/by-barcode/:barcode
 router.get('/by-barcode/:barcode', async (req, res) => {
   try {
-    const item = await db.query_one('SELECT * FROM stock WHERE barcode = $1', [req.params.barcode]);
-    if (!item) return res.status(404).json({ error: 'Stock item not found for barcode: ' + req.params.barcode });
+    const barcode = req.params.barcode;
+    let item = await db.query_one('SELECT * FROM stock WHERE barcode = $1', [barcode]);
+    
+    // Fallback: check if it's an auto-generated barcode (8810 + 8-digit ID)
+    if (!item && barcode.length === 12 && barcode.startsWith('8810')) {
+      const parsedId = parseInt(barcode.slice(4), 10);
+      if (!isNaN(parsedId)) {
+        item = await db.query_one('SELECT * FROM stock WHERE id = $1', [parsedId]);
+      }
+    }
+
+    if (!item) return res.status(404).json({ error: 'Stock item not found for barcode: ' + barcode });
     res.json(parseStock(item));
   } catch (err) {
     res.status(500).json({ error: err.message });
