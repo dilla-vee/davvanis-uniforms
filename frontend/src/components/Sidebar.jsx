@@ -7,8 +7,11 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
   } else if (user?.role === 'workshop') {
     navItems.push({ id: 'transfers', label: 'Transit', icon: '🚚' });
     navItems.push({ id: 'stock', label: 'Stock', icon: '📦' });
+    navItems.push({ id: 'labels', label: 'Print Labels', icon: '🏷️' });
   } else {
     navItems.push({ id: 'dashboard', label: 'Dashboard', icon: '🏠' });
+    navItems.push({ id: 'pos', label: 'POS', icon: '🛒' });
+    navItems.push({ id: 'catalogue', label: 'Catalogue', icon: '🏷️' });
     navItems.push({ id: 'stock', label: 'Stock', icon: '📦' });
     navItems.push({ id: 'transfers', label: 'Transit', icon: '🚚' });
     navItems.push({ id: 'orders', label: 'Orders', icon: '📋' });
@@ -16,6 +19,7 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
   }
 
   if (user?.role === 'admin') {
+    navItems.push({ id: 'labels', label: 'Print Labels', icon: '🖨️' });
     navItems.push({ id: 'analytics', label: 'Analytics', icon: '📊' });
     navItems.push({ id: 'users', label: 'Staff Settings', icon: '🛡️' });
   }

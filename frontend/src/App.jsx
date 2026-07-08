@@ -8,6 +8,9 @@ import Analytics from './components/Analytics';
 import TransitManager from './components/TransitManager';
 import Login from './components/Login';
 import UserManager from './components/UserManager';
+import POSManager from './components/POSManager';
+import CatalogueManager from './components/CatalogueManager';
+import BarcodePrinterManager from './components/BarcodePrinterManager';
 
 // Error boundary — catches JS crashes and shows message instead of black screen
 class ErrorBoundary extends Component {
@@ -41,6 +44,9 @@ const PAGE_LABELS = {
   orders: 'Orders',
   clients: 'Clients',
   analytics: 'Analytics',
+  pos: 'Point of Sale',
+  catalogue: 'Catalogue',
+  labels: 'Print Labels',
 };
 
 function getInitialDark() {
@@ -128,6 +134,9 @@ export default function App() {
       case 'clients':   return (user?.role !== 'workshop' && user?.role !== 'embroidery') ? <ClientsManager user={user} /> : <Dashboard user={user} />;
       case 'users':     return user?.role === 'admin' ? <UserManager /> : <Dashboard user={user} />;
       case 'analytics': return user?.role === 'admin' ? <Analytics /> : <Dashboard user={user} />;
+      case 'pos':       return (user?.role === 'admin' || user?.role === 'attendant') ? <POSManager user={user} /> : <Dashboard user={user} />;
+      case 'catalogue': return (user?.role === 'admin' || user?.role === 'attendant') ? <CatalogueManager user={user} /> : <Dashboard user={user} />;
+      case 'labels':    return (user?.role === 'admin' || user?.role === 'workshop') ? <BarcodePrinterManager user={user} /> : <Dashboard user={user} />;
       default:          return <Dashboard user={user} />;
     }
   };

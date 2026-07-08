@@ -1,8 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../utils/api';
 import { Html5Qrcode } from 'html5-qrcode';
-
-const CATEGORIES = ['Sweaters', 'Tops', 'Bottoms', 'Sports', 'Outerwear', 'Accessories', 'Other'];
+import Barcode from 'react-barcode';
+const CATEGORIES = [
+  'Sweaters',
+  'Tracksuits',
+  'T-Shirts & Shirts',
+  'Skirts, Blouses & Trousers',
+  'P.E. Games Kits',
+  'Ties, Blazers & Fleece Jackets',
+  'Handkerchiefs & Gloves',
+  'Mavins',
+  'Socks',
+  'Other',
+];
 const SWEATER_STYLES = [
   'Sweater: Navy Plain',
   'Sweater: Navy with White stripes',
@@ -50,6 +61,54 @@ const SWEATER_STYLES = [
   'Sweater: Beige Plain',
   'Sweater: Beige with Chocolate stripes',
   'Sweater: Navy with Safaricom stripes'
+];
+const TRACKSUIT_STYLES = [
+  'Tracksuit: Navy Plain',
+  'Tracksuit: Navy with White stripes',
+  'Tracksuit: Navy with Sky Blue stripes',
+  'Tracksuit: Navy with Red stripes',
+  'Tracksuit: Navy with Yellow stripes',
+  'Tracksuit: Red Plain',
+  'Tracksuit: Red with White stripes',
+  'Tracksuit: Maroon Plain',
+  'Tracksuit: Maroon with White stripes',
+  'Tracksuit: Green Plain',
+  'Tracksuit: Green with White stripes',
+  'Tracksuit: Green with Yellow stripes',
+  'Tracksuit: Royal Blue Plain',
+  'Tracksuit: Royal Blue with White stripes',
+  'Tracksuit: Sky Blue Plain',
+  'Tracksuit: Sky Blue with White stripes',
+  'Tracksuit: Black Plain',
+  'Tracksuit: Black with White stripes',
+  'Tracksuit: Grey (Ash) Plain',
+  'Tracksuit: Grey (Ash) with Red stripes',
+  'Tracksuit: Grey (Dark) Plain',
+  'Tracksuit: Grey (Dark) with White stripes',
+  'Tracksuit: White Plain',
+  'Tracksuit: White with Navy stripes',
+  'Tracksuit: Brown Plain',
+  'Tracksuit: Gold/Yellow Plain',
+  'Tracksuit: Orange Plain',
+  'Tracksuit: Purple Plain',
+  'Tracksuit: Beige Plain',
+];
+const SOCK_STYLES = [
+  'Socks: White Plain',
+  'Socks: White with Grey stripes',
+  'Socks: White with Blue stripes',
+  'Socks: White with Red stripes',
+  'Socks: White with Green stripes',
+  'Socks: White with Black stripes',
+  'Socks: Grey Plain',
+  'Socks: Grey with White stripes',
+  'Socks: Grey with Blue stripes',
+  'Socks: Grey with Red stripes',
+  'Socks: Black Plain',
+  'Socks: Black with White stripes',
+  'Socks: Navy Plain',
+  'Socks: Navy with White stripes',
+  'Socks: Navy with Red stripes',
 ];
 const KSH = 'Ksh ';
 
@@ -167,46 +226,63 @@ function CameraScannerModal({ onClose, onScan }) {
 
 // Tag Print Modal
 function TagPrintModal({ item, onClose }) {
-  const qrUrl = item.barcode 
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.barcode)}`
-    : `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.name + '-' + (item.size || ''))}`;
+  const barcodeValue = item.barcode || '000000000000';
 
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
+    const html = `
+      <!DOCTYPE html>
       <html>
         <head>
           <title>Print Tag - ${item.name}</title>
+          <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
           <style>
-            body { font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .tag { border: 2px solid #000; padding: 20px; width: 280px; text-align: center; border-radius: 10px; background-color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-            .brand { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; color: #4338ca; margin-bottom: 5px; }
-            .title { font-size: 18px; font-weight: 800; margin: 5px 0; color: #111; }
-            .details { font-size: 12px; color: #666; margin-bottom: 15px; }
-            .qr { margin: 15px 0; }
-            .price { font-size: 20px; font-weight: bold; color: #111; margin-top: 10px; }
-            .barcode-text { font-family: monospace; font-size: 12px; color: #333; margin-top: 5px; letter-spacing: 0.05em; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #fff; }
+            .tag { border: 2px solid #000; padding: 18px; width: 260px; text-align: center; background: #fff; }
+            .brand { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: #4338ca; margin-bottom: 4px; }
+            .title { font-size: 16px; font-weight: 900; color: #111; margin: 4px 0; line-height: 1.2; }
+            .details { font-size: 11px; color: #666; margin-bottom: 12px; }
+            .barcode-wrap { display: flex; justify-content: center; margin: 10px 0; }
+            .price { font-size: 18px; font-weight: bold; color: #111; margin-top: 8px; }
+            @media print { body { margin: 0; } }
           </style>
         </head>
         <body>
           <div class="tag">
-            <div class="brand">👔 Davvanis Uniforms</div>
+            <div class="brand">Davvanis Uniforms</div>
             <div class="title">${item.name}</div>
-            <div class="details">${item.size ? 'Size: ' + item.size : 'One Size'} • ${item.category || 'Garment'}</div>
-            <div class="qr"><img src="${qrUrl}" width="150" height="150" alt="QR Code" /></div>
-            <div class="barcode-text">${item.barcode || 'NO-BARCODE'}</div>
-            <div class="price">${item.price != null ? 'Ksh ' + Number(item.price).toFixed(2) : '—'}</div>
+            <div class="details">${item.size ? 'Size: ' + item.size : 'One Size'} &bull; ${item.category || 'Garment'}</div>
+            <div class="barcode-wrap"><svg id="barcode"></svg></div>
+            <div class="price">${item.price != null ? 'Ksh ' + Number(item.price).toFixed(2) : ''}</div>
           </div>
           <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
-            };
-          </script>
+            window.addEventListener('load', function() {
+              JsBarcode("#barcode", "${barcodeValue}", {
+                format: "CODE128", width: 2, height: 50,
+                displayValue: true, fontSize: 13, margin: 0
+              });
+              setTimeout(function() { window.print(); }, 400);
+            });
+          <\/script>
         </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+
+    const old = document.getElementById('__tag_print_frame__');
+    if (old) old.remove();
+    const frame = document.createElement('iframe');
+    frame.id = '__tag_print_frame__';
+    frame.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-999;opacity:0;pointer-events:none;';
+    document.body.appendChild(frame);
+    const doc = frame.contentDocument || frame.contentWindow.document;
+    doc.open(); doc.write(html); doc.close();
+    frame.onload = () => {
+      setTimeout(() => {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+        setTimeout(() => frame.remove(), 2000);
+      }, 500);
+    };
   };
 
   return (
@@ -216,11 +292,10 @@ function TagPrintModal({ item, onClose }) {
           <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-1">👔 Davvanis Uniforms</div>
           <h4 className="text-lg font-extrabold text-zinc-900 dark:text-white leading-tight">{item.name}</h4>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{item.size ? `Size: ${item.size}` : 'One Size'} • {item.category || 'Garment'}</p>
-          <div className="my-4 flex justify-center">
-            <img src={qrUrl} width="140" height="140" alt="QR Code" className="border p-1 bg-white" />
+          <div className="my-4 flex justify-center bg-white p-2 rounded">
+            <Barcode value={barcodeValue} width={1.5} height={50} displayValue={true} fontSize={14} margin={0} />
           </div>
-          <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300 tracking-wider mb-2">{item.barcode || 'No Barcode Assigned'}</p>
-          <div className="text-xl font-bold text-zinc-900 dark:text-white">{item.price != null ? 'Ksh ' + Number(item.price).toFixed(2) : '—'}</div>
+          <div className="text-xl font-bold text-zinc-900 dark:text-white mt-2">{item.price != null ? 'Ksh ' + Number(item.price).toFixed(2) : '—'}</div>
         </div>
 
         <div className="flex gap-3 w-full max-w-xs">
@@ -388,7 +463,7 @@ function DailySalesModal({ stock, onClose, onSaved }) {
           <body>
             <div class="center bold header">DAVVANIS UNIFORMS</div>
             <div class="center">Workshop & Retail Shop</div>
-            <div class="center">Tel: 0712 345678</div>
+            <div class="center">Tel: 0710 289 290 / 0711 404 753</div>
             <div class="divider"></div>
             <div>Receipt No: #${saleId}</div>
             <div>Date: ${saleDate}</div>
@@ -1404,6 +1479,14 @@ export default function StockManager({ user }) {
                 <select className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}>
                   {SWEATER_STYLES.map(style => <option key={style} value={style}>{style}</option>)}
                 </select>
+              ) : form.category === 'Tracksuits' ? (
+                <select className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}>
+                  {TRACKSUIT_STYLES.map(style => <option key={style} value={style}>{style}</option>)}
+                </select>
+              ) : form.category === 'Socks' ? (
+                <select className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}>
+                  {SOCK_STYLES.map(style => <option key={style} value={style}>{style}</option>)}
+                </select>
               ) : (
                 <input className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Boys Shirt" />
               )}
@@ -1431,9 +1514,12 @@ export default function StockManager({ user }) {
                   setForm(f => ({
                     ...f,
                     category: cat,
-                    source_type: cat === 'Sweaters' ? 'manufactured' : f.source_type,
-                    name: cat === 'Sweaters' && !SWEATER_STYLES.includes(f.name) ? 'Sweater: Navy Plain' : f.name,
-                    size: cat === 'Sweaters' ? '22' : f.size
+                    source_type: (cat === 'Sweaters' || cat === 'Tracksuits') ? 'manufactured' : f.source_type,
+                    name: cat === 'Sweaters' && !SWEATER_STYLES.includes(f.name) ? 'Sweater: Navy Plain'
+                        : cat === 'Tracksuits' && !TRACKSUIT_STYLES.includes(f.name) ? 'Tracksuit: Navy Plain'
+                        : cat === 'Socks' && !SOCK_STYLES.includes(f.name) ? 'Socks: White Plain'
+                        : f.name,
+                    size: (cat === 'Sweaters' || cat === 'Tracksuits') ? '22' : f.size
                   }));
                 }}>
                   <option value="">Select...</option>
@@ -1442,7 +1528,7 @@ export default function StockManager({ user }) {
               </div>
               <div>
                 <label className="label">Size</label>
-                {form.category === 'Sweaters' ? (
+                {(form.category === 'Sweaters' || form.category === 'Tracksuits') ? (
                   <select className="input" value={form.size} onChange={e=>setForm(f=>({...f,size:e.target.value}))}>
                     {['22', '24', '26', '28', '30', '32', '34', '36', '38', '40'].map(sz => <option key={sz} value={sz}>{sz}</option>)}
                   </select>

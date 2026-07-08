@@ -480,4 +480,52 @@ router.delete('/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// POST /api/stock/bulk
+router.post('/bulk', async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Items array is required' });
+    }
+
+    await client.query('BEGIN');
+    const inserted = [];
+    for (const item of items) {
+      const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type } = item;
+      
+      const result = await client.query(
+        `INSERT INTO stock (name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW()) RETURNING *`,
+        [
+          name,
+          category || null,
+          size || null,
+          quantity !== undefined ? parseInt(quantity) : 0,
+          price !== undefined ? parseFloat(price) : null,
+          low_stock_threshold !== undefined ? parseInt(low_stock_threshold) : 10,
+          barcode || null,
+          workshop_quantity !== undefined ? parseInt(workshop_quantity) : 0,
+          embroidery_quantity !== undefined ? parseInt(embroidery_quantity) : 0,
+          source_type || 'purchased'
+        ]
+      );
+      inserted.push(parseStock(result.rows[0]));
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json(inserted);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    // If it's a unique constraint violation on barcode, give a nice error message
+    if (err.code === '23505') {
+       res.status(400).json({ error: 'A product with this barcode already exists.' });
+    } else {
+       res.status(500).json({ error: err.message });
+    }
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

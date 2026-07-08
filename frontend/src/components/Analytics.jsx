@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { ShoppingBag, Landmark, AlertTriangle, Layers, TrendingUp, Factory, Scissors } from 'lucide-react';
 
-const COLORS = ['#00e676', '#3b82f6', '#fbb0e9', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'];
+const COLORS = ['#00e676', '#3b82f6', '#fbb0e9', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#f97316', '#14b8a6', '#a78bfa', '#fb7185', '#84cc16'];
 const KSH = 'Ksh ';
 
 // Sparkline Mock Data for stat cards
