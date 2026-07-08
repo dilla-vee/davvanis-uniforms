@@ -59,7 +59,11 @@ function KpiCard({ icon, label, value, sub, accent, loading }) {
 }
 
 // ── Category pie chart ───────────────────────────────────────────
-const PIE_COLORS = ['#6366f1', '#06b6d4', '#f59e0b', '#10b981', '#f43f5e', '#8b5cf6', '#ec4899'];
+const PIE_COLORS = [
+  '#6366f1', '#06b6d4', '#f59e0b', '#10b981', '#f43f5e', '#8b5cf6', '#ec4899',
+  '#f97316', '#14b8a6', '#84cc16', '#3b82f6', '#a78bfa', '#fb7185', '#fbbf24',
+  '#34d399', '#60a5fa'
+];
 
 function CategoryChart({ stock, loading }) {
   const data = React.useMemo(() => {
@@ -71,7 +75,7 @@ function CategoryChart({ stock, loading }) {
     return Object.entries(counts)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 7);
+      .slice(0, 16);
   }, [stock]);
 
   if (loading) return (

@@ -1,7 +1,24 @@
 import React, { useState } from 'react';
 import { apiFetch } from '../utils/api';
 
-const CATEGORIES = ['Sweaters', 'Tops', 'Bottoms', 'Sports', 'Outerwear', 'Accessories', 'Other'];
+const CATEGORIES = [
+  'Sweaters',
+  'Tracksuits',
+  'T-Shirts',
+  'Shirts',
+  'Skirts',
+  'Blouses',
+  'Trousers',
+  'P.E. Games Kits',
+  'Ties',
+  'Blazers',
+  'Fleece Jackets',
+  'Handkerchiefs',
+  'Gloves',
+  'Mavins',
+  'Socks',
+  'Other',
+];
 
 export default function CatalogueManager({ user }) {
   const [baseProduct, setBaseProduct] = useState('');

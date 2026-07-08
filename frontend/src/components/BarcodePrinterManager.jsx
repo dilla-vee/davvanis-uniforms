@@ -61,8 +61,11 @@ export default function BarcodePrinterManager({ user }) {
         setStock(data.filter(s =>
           s.category === 'Sweaters' ||
           s.category === 'Tracksuits' ||
+          s.category === 'Fleece Jackets' ||
+          s.category === 'Blazers' ||
+          s.category === 'Ties' ||
+          // backwards compat for old combined category names
           s.category === 'Ties, Blazers & Fleece Jackets' ||
-          // backwards compat for items already saved as Outerwear
           s.category === 'Outerwear'
         ));
       } else {

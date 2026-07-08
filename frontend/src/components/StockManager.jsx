@@ -5,11 +5,17 @@ import Barcode from 'react-barcode';
 const CATEGORIES = [
   'Sweaters',
   'Tracksuits',
-  'T-Shirts & Shirts',
-  'Skirts, Blouses & Trousers',
+  'T-Shirts',
+  'Shirts',
+  'Skirts',
+  'Blouses',
+  'Trousers',
   'P.E. Games Kits',
-  'Ties, Blazers & Fleece Jackets',
-  'Handkerchiefs & Gloves',
+  'Ties',
+  'Blazers',
+  'Fleece Jackets',
+  'Handkerchiefs',
+  'Gloves',
   'Mavins',
   'Socks',
   'Other',
@@ -63,35 +69,34 @@ const SWEATER_STYLES = [
   'Sweater: Navy with Safaricom stripes'
 ];
 const TRACKSUIT_STYLES = [
-  'Tracksuit: Navy Plain',
+  'Tracksuit: Black with White stripes',
   'Tracksuit: Navy with White stripes',
-  'Tracksuit: Navy with Sky Blue stripes',
   'Tracksuit: Navy with Red stripes',
   'Tracksuit: Navy with Yellow stripes',
-  'Tracksuit: Red Plain',
-  'Tracksuit: Red with White stripes',
-  'Tracksuit: Maroon Plain',
-  'Tracksuit: Maroon with White stripes',
-  'Tracksuit: Green Plain',
+  'Tracksuit: Navy with Sky stripes',
   'Tracksuit: Green with White stripes',
-  'Tracksuit: Green with Yellow stripes',
-  'Tracksuit: Royal Blue Plain',
+  'Tracksuit: Safaricom Green with White stripes',
   'Tracksuit: Royal Blue with White stripes',
-  'Tracksuit: Sky Blue Plain',
-  'Tracksuit: Sky Blue with White stripes',
-  'Tracksuit: Black Plain',
-  'Tracksuit: Black with White stripes',
-  'Tracksuit: Grey (Ash) Plain',
-  'Tracksuit: Grey (Ash) with Red stripes',
-  'Tracksuit: Grey (Dark) Plain',
-  'Tracksuit: Grey (Dark) with White stripes',
-  'Tracksuit: White Plain',
-  'Tracksuit: White with Navy stripes',
-  'Tracksuit: Brown Plain',
-  'Tracksuit: Gold/Yellow Plain',
-  'Tracksuit: Orange Plain',
-  'Tracksuit: Purple Plain',
-  'Tracksuit: Beige Plain',
+  'Tracksuit: Red with White stripes',
+  'Tracksuit: Yellow with White stripes',
+  'Tracksuit: Maroon with White stripes',
+  'Tracksuit: Maroon with Yellow stripes',
+  'Tracksuit: Dark Purple with White stripes',
+  'Tracksuit: Light Purple with White stripes',
+  'Tracksuit: Light Grey with White stripes',
+  'Tracksuit: Ash Grey with White stripes',
+  'Tracksuit: Charcoal Grey with White stripes',
+  'Tracksuit: Sky with White stripes',
+];
+const FLEECE_JACKET_STYLES = [
+  'Fleece Jacket: Navy Blue',
+  'Fleece Jacket: Black',
+  'Fleece Jacket: Sky Blue',
+  'Fleece Jacket: Green',
+  'Fleece Jacket: Royal Blue',
+  'Fleece Jacket: Grey',
+  'Fleece Jacket: Ash Grey',
+  'Fleece Jacket: Purple',
 ];
 const SOCK_STYLES = [
   'Socks: White Plain',
@@ -789,9 +794,9 @@ export default function StockManager({ user }) {
     if (!form.name.trim()) { setFormError('Name is required'); return; }
     setSaving(true);
     try {
-      if (!editItem && form.category === 'Sweaters') {
+      if (!editItem && (form.category === 'Sweaters' || form.category === 'Tracksuits')) {
         const existing = stock.find(s => 
-          s.category === 'Sweaters' && 
+          s.category === form.category && 
           s.name.toLowerCase() === form.name.toLowerCase() && 
           String(s.size) === String(form.size)
         );
@@ -1487,6 +1492,10 @@ export default function StockManager({ user }) {
                 <select className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}>
                   {SOCK_STYLES.map(style => <option key={style} value={style}>{style}</option>)}
                 </select>
+              ) : form.category === 'Fleece Jackets' ? (
+                <select className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}>
+                  {FLEECE_JACKET_STYLES.map(style => <option key={style} value={style}>{style}</option>)}
+                </select>
               ) : (
                 <input className="input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Boys Shirt" />
               )}
@@ -1514,10 +1523,11 @@ export default function StockManager({ user }) {
                   setForm(f => ({
                     ...f,
                     category: cat,
-                    source_type: (cat === 'Sweaters' || cat === 'Tracksuits') ? 'manufactured' : f.source_type,
+                    source_type: (cat === 'Sweaters' || cat === 'Tracksuits' || cat === 'Fleece Jackets') ? 'manufactured' : f.source_type,
                     name: cat === 'Sweaters' && !SWEATER_STYLES.includes(f.name) ? 'Sweater: Navy Plain'
-                        : cat === 'Tracksuits' && !TRACKSUIT_STYLES.includes(f.name) ? 'Tracksuit: Navy Plain'
+                        : cat === 'Tracksuits' && !TRACKSUIT_STYLES.includes(f.name) ? 'Tracksuit: Black with White stripes'
                         : cat === 'Socks' && !SOCK_STYLES.includes(f.name) ? 'Socks: White Plain'
+                        : cat === 'Fleece Jackets' && !FLEECE_JACKET_STYLES.includes(f.name) ? 'Fleece Jacket: Navy Blue'
                         : f.name,
                     size: (cat === 'Sweaters' || cat === 'Tracksuits') ? '22' : f.size
                   }));
