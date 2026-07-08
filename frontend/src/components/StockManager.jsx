@@ -231,7 +231,8 @@ function CameraScannerModal({ onClose, onScan }) {
 
 // Tag Print Modal
 function TagPrintModal({ item, onClose }) {
-  const barcodeValue = item.barcode || '000000000000';
+  const padded = String(item.id).padStart(8, '0');
+  const barcodeValue = item.barcode || `8810${padded}`;
 
   const handlePrint = () => {
     const html = `
