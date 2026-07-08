@@ -63,7 +63,7 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" style={{ minHeight: 0 }}>
         {navItems.map((item) => {
           const isActive = activePage === item.id;
           return (
