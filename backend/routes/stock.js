@@ -433,7 +433,7 @@ router.post('/', async (req, res) => {
   try {
     const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
-    const item = await db.query_one(
+    let item = await db.query_one(
       `INSERT INTO stock (name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW()) RETURNING *`,
       [
@@ -449,6 +449,16 @@ router.post('/', async (req, res) => {
         source_type || 'purchased'
       ]
     );
+
+    // Auto-generate and save a barcode if none was provided
+    if (!item.barcode) {
+      const generatedBarcode = `8810${String(item.id).padStart(8, '0')}`;
+      item = await db.query_one(
+        `UPDATE stock SET barcode = $1 WHERE id = $2 RETURNING *`,
+        [generatedBarcode, item.id]
+      );
+    }
+
     res.status(201).json(parseStock(item));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -459,7 +469,7 @@ router.put('/:id', async (req, res) => {
     const existing = await db.query_one('SELECT * FROM stock WHERE id = $1', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Stock item not found' });
     const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type } = req.body;
-    const updated = await db.query_one(
+    let updated = await db.query_one(
       `UPDATE stock SET name=$1, category=$2, size=$3, quantity=$4,
         price=$5, low_stock_threshold=$6, barcode=$7, workshop_quantity=$8, embroidery_quantity=$9, source_type=$10, updated_at=NOW() WHERE id=$11 RETURNING *`,
       [
@@ -476,6 +486,16 @@ router.put('/:id', async (req, res) => {
         req.params.id,
       ]
     );
+
+    // Auto-generate and save a barcode if none exists
+    if (!updated.barcode) {
+      const generatedBarcode = `8810${String(updated.id).padStart(8, '0')}`;
+      updated = await db.query_one(
+        `UPDATE stock SET barcode = $1 WHERE id = $2 RETURNING *`,
+        [generatedBarcode, updated.id]
+      );
+    }
+
     res.json(parseStock(updated));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
