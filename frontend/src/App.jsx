@@ -11,6 +11,7 @@ import UserManager from './components/UserManager';
 import POSManager from './components/POSManager';
 import CatalogueManager from './components/CatalogueManager';
 import BarcodePrinterManager from './components/BarcodePrinterManager';
+import PriceListManager from './components/PriceListManager';
 
 // Error boundary — catches JS crashes and shows message instead of black screen
 class ErrorBoundary extends Component {
@@ -47,6 +48,7 @@ const PAGE_LABELS = {
   pos: 'Point of Sale',
   catalogue: 'Catalogue',
   labels: 'Print Labels',
+  pricelist: 'Price List',
 };
 
 function getInitialDark() {
@@ -137,6 +139,7 @@ export default function App() {
       case 'pos':       return (user?.role === 'admin' || user?.role === 'attendant') ? <POSManager user={user} /> : <Dashboard user={user} />;
       case 'catalogue': return (user?.role === 'admin' || user?.role === 'attendant') ? <CatalogueManager user={user} /> : <Dashboard user={user} />;
       case 'labels':    return (user?.role === 'admin' || user?.role === 'workshop') ? <BarcodePrinterManager user={user} /> : <Dashboard user={user} />;
+      case 'pricelist': return user?.role === 'admin' ? <PriceListManager user={user} /> : <Dashboard user={user} />;
       default:          return <Dashboard user={user} />;
     }
   };

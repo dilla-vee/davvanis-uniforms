@@ -13,11 +13,35 @@ function getItemBarcode(item) {
   return `8810${padded}`;
 }
 
-// Use an invisible iframe to print — works in Android WebView where window.open is blocked
+// Print HTML content — works on Android WebView + desktop browsers
+// Strategy: open a Blob URL in a new window (most reliable on Capacitor/Android),
+// then fall back to invisible iframe if popup is blocked.
 function printWithIframe(htmlContent) {
-  const existingFrame = document.getElementById('__print_frame__');
-  if (existingFrame) existingFrame.remove();
+  // Clean up previous frames
+  const oldFrame = document.getElementById('__print_frame__');
+  if (oldFrame) oldFrame.remove();
 
+  // Try window.open first (most reliable on Android)
+  const blob = new Blob([htmlContent], { type: 'text/html' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  const printWindow = window.open(blobUrl, '_blank');
+  if (printWindow) {
+    printWindow.addEventListener('load', () => {
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl);
+          printWindow.close();
+        }, 3000);
+      }, 800);
+    });
+    return;
+  }
+
+  // Fallback: invisible iframe (for environments where popup is blocked)
+  URL.revokeObjectURL(blobUrl);
   const frame = document.createElement('iframe');
   frame.id = '__print_frame__';
   frame.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-1;opacity:0;pointer-events:none;';
@@ -28,13 +52,12 @@ function printWithIframe(htmlContent) {
   doc.write(htmlContent);
   doc.close();
 
-  // Wait for JsBarcode CDN to load then print
   frame.onload = () => {
     setTimeout(() => {
       frame.contentWindow.focus();
       frame.contentWindow.print();
-      setTimeout(() => frame.remove(), 1500);
-    }, 600);
+      setTimeout(() => frame.remove(), 2000);
+    }, 800);
   };
 }
 

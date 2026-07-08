@@ -20,6 +20,7 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
 
   if (user?.role === 'admin') {
     navItems.push({ id: 'labels', label: 'Print Labels', icon: '🖨️' });
+    navItems.push({ id: 'pricelist', label: 'Price List', icon: '💰' });
     navItems.push({ id: 'analytics', label: 'Analytics', icon: '📊' });
     navItems.push({ id: 'users', label: 'Staff Settings', icon: '🛡️' });
   }
