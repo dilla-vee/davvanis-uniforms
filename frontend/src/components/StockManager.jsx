@@ -413,8 +413,37 @@ function DailySalesModal({ stock, onClose, onSaved }) {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Failed');
-      setSuccess({ sale: data.sale, items: [...items] });
-      onSaved(data.updatedStock);
+      
+      let saleData = data.sale;
+      let updatedStock = data.updatedStock;
+
+      // Handle offline mode mock response
+      if (data.offline) {
+        saleData = {
+          id: 'OFFLINE-' + Date.now(),
+          created_at: new Date().toISOString(),
+          sale_date: saleDate,
+          total_value: items.reduce((s, i) => s + (parseFloat(i.unit_price) || 0) * (parseInt(i.qty_sold) || 0), 0)
+        };
+        
+        // Optimistically deduct stock
+        updatedStock = stock.map(s => {
+          const soldItem = items.find(i => String(i.stock_id) === String(s.id));
+          if (soldItem) {
+            return { ...s, quantity: Math.max(0, s.quantity - parseInt(soldItem.qty_sold)) };
+          }
+          return s;
+        });
+        
+        // Update the cached GET request so other parts of the app see the deducted stock
+        try {
+          const CACHE_KEY = 'unistore_cache_/api/stock';
+          localStorage.setItem(CACHE_KEY, JSON.stringify(updatedStock));
+        } catch (err) {}
+      }
+
+      setSuccess({ sale: saleData, items: [...items] });
+      if (updatedStock) onSaved(updatedStock);
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   };
 

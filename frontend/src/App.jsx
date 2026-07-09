@@ -12,6 +12,7 @@ import POSManager from './components/POSManager';
 import CatalogueManager from './components/CatalogueManager';
 import BarcodePrinterManager from './components/BarcodePrinterManager';
 import PriceListManager from './components/PriceListManager';
+import { initOfflineSync, getOfflineQueue } from './utils/offlineSync';
 
 // Error boundary — catches JS crashes and shows message instead of black screen
 class ErrorBoundary extends Component {
@@ -86,6 +87,27 @@ export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dark, setDark] = useState(getInitialDark);
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [queueCount, setQueueCount] = useState(0);
+
+  useEffect(() => {
+    initOfflineSync();
+    const updateStatus = () => setIsOnline(navigator.onLine);
+    const updateQueue = () => setQueueCount(getOfflineQueue().length);
+    
+    window.addEventListener('online', updateStatus);
+    window.addEventListener('offline', updateStatus);
+    window.addEventListener('offline-queue-updated', updateQueue);
+    
+    updateQueue();
+    
+    return () => {
+      window.removeEventListener('online', updateStatus);
+      window.removeEventListener('offline', updateStatus);
+      window.removeEventListener('offline-queue-updated', updateQueue);
+    };
+  }, []);
 
   useEffect(() => {
     if ((user?.role === 'workshop' || user?.role === 'embroidery') && !['transfers', 'stock', 'orders'].includes(activePage)) {
@@ -234,7 +256,25 @@ export default function App() {
         </header>
 
         <main className="flex-1 overflow-y-auto">
-          <div className="p-4 lg:p-6">{renderPage()}</div>
+          <div className="p-4 lg:p-6">
+            {(!isOnline || queueCount > 0) && (
+              <div className={`mb-4 p-3 rounded-lg flex items-center justify-between text-sm ${isOnline ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-3 w-3">
+                    {queueCount > 0 && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isOnline ? 'bg-amber-400' : 'bg-red-400'}`}></span>}
+                    <span className={`relative inline-flex rounded-full h-3 w-3 ${isOnline ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+                  </span>
+                  <span className="font-semibold">
+                    {!isOnline ? 'You are offline.' : 'Back online.'} 
+                  </span>
+                  <span>
+                    {queueCount > 0 ? ` ${queueCount} action(s) pending sync...` : ' All actions synced.'}
+                  </span>
+                </div>
+              </div>
+            )}
+            {renderPage()}
+          </div>
         </main>
       </div>
     </div>

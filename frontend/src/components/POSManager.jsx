@@ -135,8 +135,34 @@ export default function POSManager({ user }) {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Checkout failed');
 
+      let saleData = data.sale;
+      
+      // Handle offline mode mock response
+      if (data.offline) {
+        saleData = {
+          id: 'OFFLINE-' + Date.now(),
+          created_at: new Date().toISOString(),
+          sale_date: new Date().toISOString().split('T')[0],
+          total_value: cart.reduce((sum, item) => sum + item.subtotal, 0)
+        };
+
+        // Optimistically deduct stock from cached /api/stock
+        try {
+          const CACHE_KEY = 'unistore_cache_/api/stock';
+          let cachedStock = JSON.parse(localStorage.getItem(CACHE_KEY) || '[]');
+          cachedStock = cachedStock.map(s => {
+            const soldItem = cart.find(i => String(i.stock_id) === String(s.id));
+            if (soldItem) {
+              return { ...s, quantity: Math.max(0, s.quantity - soldItem.qty_sold) };
+            }
+            return s;
+          });
+          localStorage.setItem(CACHE_KEY, JSON.stringify(cachedStock));
+        } catch (err) {}
+      }
+
       setSuccess({
-        sale: data.sale,
+        sale: saleData,
         items: [...cart],
         timestamp: new Date().toLocaleString('en-KE'),
       });
