@@ -12,6 +12,9 @@ import POSManager from './components/POSManager';
 import CatalogueManager from './components/CatalogueManager';
 import BarcodePrinterManager from './components/BarcodePrinterManager';
 import PriceListManager from './components/PriceListManager';
+import DebtsManager from './components/DebtsManager';
+import EmbroideryManager from './components/EmbroideryManager';
+import EmbroideryClientsManager from './components/EmbroideryClientsManager';
 import { initOfflineSync, getOfflineQueue } from './utils/offlineSync';
 
 // Error boundary — catches JS crashes and shows message instead of black screen
@@ -50,6 +53,7 @@ const PAGE_LABELS = {
   catalogue: 'Catalogue',
   labels: 'Print Labels',
   pricelist: 'Price List',
+  debts: 'Debts Manager',
 };
 
 function getInitialDark() {
@@ -110,7 +114,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if ((user?.role === 'workshop' || user?.role === 'embroidery') && !['transfers', 'stock', 'orders'].includes(activePage)) {
+    if ((user?.role === 'workshop' || user?.role === 'embroidery') && !['transfers', 'stock', 'orders', 'embroidery'].includes(activePage)) {
       setActivePage('transfers');
     }
   }, [user, activePage]);
@@ -162,6 +166,9 @@ export default function App() {
       case 'catalogue': return (user?.role === 'admin' || user?.role === 'attendant') ? <CatalogueManager user={user} /> : <Dashboard user={user} />;
       case 'labels':    return (user?.role === 'admin' || user?.role === 'workshop') ? <BarcodePrinterManager user={user} /> : <Dashboard user={user} />;
       case 'pricelist': return user?.role === 'admin' ? <PriceListManager user={user} /> : <Dashboard user={user} />;
+      case 'debts':     return user?.role === 'admin' ? <DebtsManager user={user} /> : <Dashboard user={user} />;
+      case 'embroidery':return (user?.role === 'admin' || user?.role === 'embroidery') ? <EmbroideryManager user={user} /> : <Dashboard user={user} />;
+      case 'embroidery_clients':return (user?.role === 'admin' || user?.role === 'embroidery') ? <EmbroideryClientsManager user={user} /> : <Dashboard user={user} />;
       default:          return <Dashboard user={user} />;
     }
   };

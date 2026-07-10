@@ -148,8 +148,75 @@ async function initDB() {
       ALTER TABLE stock_transfers ADD COLUMN IF NOT EXISTS transfer_type TEXT DEFAULT 'workshop_to_shop';
     `);
 
+    // Migration for daily sales, guest orders, deposits, and debts:
+    await client.query(`
+      ALTER TABLE daily_sales ADD COLUMN IF NOT EXISTS client_name TEXT;
+      ALTER TABLE daily_sales ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'Cash';
+
+      ALTER TABLE orders ALTER COLUMN client_id DROP NOT NULL;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_name TEXT;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_contact TEXT;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC(10,2) DEFAULT 0;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS balance_amount NUMERIC(10,2) DEFAULT 0;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS collection_date DATE;
+
+      CREATE TABLE IF NOT EXISTS debts (
+        id SERIAL PRIMARY KEY,
+        client_name TEXT NOT NULL,
+        contact TEXT,
+        amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+        description TEXT,
+        status TEXT DEFAULT 'unpaid',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    // Migration for staff PIN, sales attendant tracking, and embroidery logging:
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS pin TEXT UNIQUE;
+      ALTER TABLE daily_sales ADD COLUMN IF NOT EXISTS sold_by TEXT;
+
+      CREATE TABLE IF NOT EXISTS embroidery_logs (
+        id SERIAL PRIMARY KEY,
+        log_type TEXT NOT NULL,
+        logged_at TIMESTAMPTZ DEFAULT NOW(),
+        item_name TEXT,
+        quantity INTEGER DEFAULT 1,
+        price_charged NUMERIC(10,2) NOT NULL DEFAULT 0,
+        payment_method TEXT DEFAULT 'Cash',
+        service_description TEXT,
+        customer_item_count INTEGER,
+        recorded_by TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS embroidery_clients (
+        id          SERIAL PRIMARY KEY,
+        name        TEXT NOT NULL,
+        contact     TEXT,
+        email       TEXT,
+        description TEXT,
+        image_url   TEXT,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS embroidery_client_designs (
+        id          SERIAL PRIMARY KEY,
+        client_id   INTEGER REFERENCES embroidery_clients(id) ON DELETE CASCADE,
+        image_url   TEXT NOT NULL,
+        design_name TEXT,
+        notes       TEXT,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      ALTER TABLE embroidery_logs ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES embroidery_clients(id) ON DELETE SET NULL;
+    `);
+
     // Create database indexes for scaling and search optimization
     await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_embroidery_logs_client_id ON embroidery_logs(client_id);
+      CREATE INDEX IF NOT EXISTS idx_embroidery_client_designs_client_id ON embroidery_client_designs(client_id);
+
       CREATE INDEX IF NOT EXISTS idx_client_uniform_photos_client_id ON client_uniform_photos(client_id);
       CREATE INDEX IF NOT EXISTS idx_orders_client_id ON orders(client_id);
       CREATE INDEX IF NOT EXISTS idx_orders_order_date ON orders(order_date);

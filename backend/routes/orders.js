@@ -19,6 +19,8 @@ router.get('/', async (req, res) => {
       ...r,
       total_price: parseFloat(r.total_price) || 0,
       item_count:  parseInt(r.item_count) || 0,
+      deposit_amount: parseFloat(r.deposit_amount) || 0,
+      balance_amount: parseFloat(r.balance_amount) || 0,
     }));
     res.json(parsed);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -163,6 +165,8 @@ router.get('/:id', async (req, res) => {
     const parsedOrder = {
       ...order,
       total_price: parseFloat(order.total_price) || 0,
+      deposit_amount: parseFloat(order.deposit_amount) || 0,
+      balance_amount: parseFloat(order.balance_amount) || 0,
       items: items.map(i => ({
         ...i,
         unit_price: parseFloat(i.unit_price) || 0,
@@ -178,17 +182,20 @@ router.post('/', async (req, res) => {
   if (!db) return res.status(503).json({ error: 'DATABASE_URL not configured' });
   const client = await db.connect();
   try {
-    const { client_id, notes, items } = req.body;
-    if (!client_id) return res.status(400).json({ error: 'client_id is required' });
+    const { client_id, guest_name, guest_contact, notes, items, deposit_amount, collection_date } = req.body;
+    if (!client_id && !guest_name) return res.status(400).json({ error: 'client_id or guest_name is required' });
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'At least one item is required' });
 
     const total_price = items.reduce((s, i) => s + (parseFloat(i.unit_price)||0) * (parseInt(i.quantity)||0), 0);
+    const deposit = parseFloat(deposit_amount) || 0;
+    const balance = Math.max(0, total_price - deposit);
 
     await client.query('BEGIN');
 
     const { rows: [order] } = await client.query(
-      `INSERT INTO orders (client_id, total_price, status, notes) VALUES ($1,$2,'pending',$3) RETURNING *`,
-      [client_id, total_price, notes||null]
+      `INSERT INTO orders (client_id, guest_name, guest_contact, deposit_amount, balance_amount, collection_date, total_price, status, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8) RETURNING *`,
+      [client_id || null, guest_name || null, guest_contact || null, deposit, balance, collection_date || null, total_price, notes||null]
     );
 
     for (const item of items) {

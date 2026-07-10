@@ -4,6 +4,8 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
 
   if (user?.role === 'embroidery') {
     navItems.push({ id: 'transfers', label: 'Transit', icon: '🚚' });
+    navItems.push({ id: 'embroidery', label: 'Embroidery Log', icon: '🪡' });
+    navItems.push({ id: 'embroidery_clients', label: 'Embroidery Clients', icon: '🧵' });
   } else if (user?.role === 'workshop') {
     navItems.push({ id: 'transfers', label: 'Transit', icon: '🚚' });
     navItems.push({ id: 'stock', label: 'Stock', icon: '📦' });
@@ -21,6 +23,9 @@ export default function Sidebar({ activePage, setActivePage, dark, onToggleDark,
   if (user?.role === 'admin') {
     navItems.push({ id: 'labels', label: 'Print Labels', icon: '🖨️' });
     navItems.push({ id: 'pricelist', label: 'Price List', icon: '💰' });
+    navItems.push({ id: 'debts', label: 'Debts Manager', icon: '💳' });
+    navItems.push({ id: 'embroidery', label: 'Embroidery Log', icon: '🪡' });
+    navItems.push({ id: 'embroidery_clients', label: 'Embroidery Clients', icon: '🧵' });
     navItems.push({ id: 'analytics', label: 'Analytics', icon: '📊' });
     navItems.push({ id: 'users', label: 'Staff Settings', icon: '🛡️' });
   }

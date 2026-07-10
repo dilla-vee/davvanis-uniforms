@@ -318,7 +318,10 @@ function DailySalesModal({ stock, onClose, onSaved }) {
   const today = new Date().toISOString().split('T')[0];
   const [saleDate, setSaleDate] = useState(today);
   const [notes, setNotes] = useState('');
-  const [items, setItems] = useState([{ stock_id: '', qty_sold: '1', unit_price: '' }]);
+  const [clientName, setClientName] = useState('');
+  const [pin, setPin] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [items, setItems] = useState([{ stock_id: '', name: '', qty_sold: '1', unit_price: '' }]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
@@ -333,58 +336,49 @@ function DailySalesModal({ stock, onClose, onSaved }) {
     if (scanInputRef.current) scanInputRef.current.focus();
   }, []);
 
-  const addRow = () => setItems(i => [...i, { stock_id: '', qty_sold: '1', unit_price: '' }]);
+  const addRow = () => setItems(i => [...i, { stock_id: '', name: '', qty_sold: '1', unit_price: '' }]);
   const removeRow = idx => setItems(i => i.filter((_, n) => n !== idx));
   const updateRow = (idx, field, val) => setItems(i => {
     const next = [...i];
     next[idx] = { ...next[idx], [field]: val };
-    if (field === 'stock_id') {
+    if (field === 'stock_id' && val !== 'custom') {
       const s = stock.find(s => String(s.id) === String(val));
       if (s) next[idx].unit_price = s.price != null ? String(s.price) : '';
     }
     return next;
   });
 
-  const handleScan = async (barcode) => {
-    setScanError('');
-    if (!barcode.trim()) return;
-    try {
-      const res = await apiFetch(`/api/stock/by-barcode/${encodeURIComponent(barcode.trim())}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Barcode not found in stock');
+  const handleScanInputKeyDown = async e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = scanInput.trim();
+      if (!val) return;
 
-      const targetId = String(data.id);
-      const existingIdx = items.findIndex(item => String(item.stock_id) === targetId);
+      const item = stock.find(s => s.barcode === val);
+      if (!item) {
+        setScanError(`Item with barcode/SKU "${val}" not found`);
+        return;
+      }
 
-      if (existingIdx !== -1) {
+      setScanError('');
+      setScanInput('');
+
+      // Add item to sales list or increment qty if already present
+      const existingIdx = items.findIndex(i => String(i.stock_id) === String(item.id));
+      if (existingIdx > -1) {
         const currentQty = parseInt(items[existingIdx].qty_sold) || 0;
-        if (currentQty < data.quantity) {
+        if (currentQty < item.quantity) {
           updateRow(existingIdx, 'qty_sold', String(currentQty + 1));
         } else {
-          setScanError(`Cannot add more "${data.name}" — only ${data.quantity} in stock.`);
+          setScanError(`Cannot add more "${item.name}" — only ${item.quantity} in stock`);
         }
       } else {
         if (items.length === 1 && !items[0].stock_id) {
-          updateRow(0, 'stock_id', targetId);
+          setItems([{ stock_id: String(item.id), name: '', qty_sold: '1', unit_price: String(item.price || '') }]);
         } else {
-          setItems(prev => [...prev, {
-            stock_id: targetId,
-            qty_sold: '1',
-            unit_price: data.price != null ? String(data.price) : ''
-          }]);
+          setItems([...items, { stock_id: String(item.id), name: '', qty_sold: '1', unit_price: String(item.price || '') }]);
         }
       }
-      setScanInput('');
-      if (scanInputRef.current) scanInputRef.current.focus();
-    } catch (e) {
-      setScanError(e.message || 'Product not found');
-    }
-  };
-
-  const handleScanInputKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleScan(scanInput);
     }
   };
 
@@ -393,8 +387,12 @@ function DailySalesModal({ stock, onClose, onSaved }) {
   const handleSubmit = async e => {
     e.preventDefault();
     setError('');
+    if (!pin.trim()) { setError('Enter your unique 4-digit staff PIN'); return; }
+    if (!/^\d{4}$/.test(pin.trim())) { setError('PIN must be exactly 4 digits'); return; }
+
     for (const item of items) {
       if (!item.stock_id) { setError('Select a stock item for each row'); return; }
+      if (item.stock_id === 'custom' && !item.name?.trim()) { setError('Enter a name for the custom item'); return; }
       if (!item.qty_sold || parseInt(item.qty_sold) < 1) { setError('Quantity must be at least 1'); return; }
     }
     setSaving(true);
@@ -404,8 +402,12 @@ function DailySalesModal({ stock, onClose, onSaved }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sale_date: saleDate, notes: notes || null,
+          client_name: clientName || null,
+          payment_method: paymentMethod,
+          pin: pin,
           items: items.map(i => ({
-            stock_id: parseInt(i.stock_id),
+            stock_id: i.stock_id === 'custom' ? null : parseInt(i.stock_id),
+            name: i.stock_id === 'custom' ? i.name : undefined,
             qty_sold: parseInt(i.qty_sold),
             unit_price: parseFloat(i.unit_price) || 0,
           })),
@@ -484,56 +486,90 @@ function DailySalesModal({ stock, onClose, onSaved }) {
           <head>
             <title>Receipt #${saleId}</title>
             <style>
-              body { font-family: 'Courier New', monospace; padding: 15px; width: 300px; font-size: 13px; color: #000; }
+              @media print { @page { margin: 0; } body { margin: 1.6cm; } }
+              body { font-family: 'Times New Roman', Times, serif; width: 400px; font-size: 14px; color: #000; }
               .center { text-align: center; }
-              .divider { border-top: 1px dashed #000; margin: 10px 0; }
               .bold { font-weight: bold; }
-              table { width: 100%; border-collapse: collapse; }
-              td { padding: 3px 0; }
+              .italic { font-style: italic; }
+              .title { font-size: 24px; font-weight: 800; color: #166534; margin-bottom: 2px; }
+              .subtitle { font-size: 11px; color: #166534; font-weight: bold; margin-bottom: 8px; }
+              .header-table { width: 100%; font-size: 12px; margin-bottom: 10px; color: #166534; }
+              .header-table td { vertical-align: top; }
+              .cash-sale { background-color: #166534; color: white; padding: 2px 10px; font-weight: bold; display: inline-block; font-size: 13px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+              th, td { padding: 4px 6px; }
+              .items-table th { border-top: 2px solid #166534; border-bottom: 2px solid #166534; color: #166534; text-align: left; }
+              .items-table td { border-bottom: 1px solid #166534; border-left: 1px solid #166534; border-right: 1px solid #166534; }
+              .items-table th:first-child, .items-table td:first-child { border-left: none; }
+              .items-table th:last-child, .items-table td:last-child { border-right: none; }
               .right { text-align: right; }
-              .header { font-size: 15px; font-weight: bold; }
-              .footer { font-size: 11px; margin-top: 20px; }
+              .total-row td { border-bottom: 2px solid #166534 !important; font-weight: bold; color: #166534; }
+              .footer { text-align: center; margin-top: 20px; font-style: italic; color: #166534; font-weight: bold; font-size: 16px; }
             </style>
           </head>
           <body>
-            <div class="center bold header">DAVVANIS UNIFORMS</div>
-            <div class="center">Workshop & Retail Shop</div>
-            <div class="center">Tel: 0710 289 290 / 0711 404 753</div>
-            <div class="divider"></div>
-            <div>Receipt No: #${saleId}</div>
-            <div>Date: ${saleDate}</div>
-            <div>Status: PAID</div>
-            <div class="divider"></div>
-            <table>
+            <div class="center title">DAVANIS UNIFORMS</div>
+            <div class="center subtitle">School Uniforms / Corporate Wear / All Uniforms / Embroidery & Branding</div>
+            <table class="header-table">
+              <tr>
+                <td style="width: 35%;">Uhuru Market,<br>Shop J-100, J-101<br>&<br>Shop 6 Block C</td>
+                <td style="width: 30%; text-align: center;"><div class="cash-sale">${paymentMethod === 'Cash' ? 'CASH SALE' : paymentMethod.toUpperCase()}</div></td>
+                <td style="width: 35%; text-align: right;">Tel: 0710 289 290<br>0711 404 753<br>Email: davanisuniformsltd@gmail.com</td>
+              </tr>
+            </table>
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+              <div style="width: 65%; display: flex;">
+                <span style="color: #166534; font-weight: bold;">M/S</span>
+                <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${clientName || ''}</span>
+              </div>
+              <div style="width: 30%; display: flex;">
+                <span style="color: #166534; font-weight: bold;">Date:</span>
+                <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${saleDate}</span>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+              <div style="width: 100%; display: flex;">
+                <span style="color: #166534; font-weight: bold;">Served By:</span>
+                <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${success?.sale?.sold_by || 'Staff'}</span>
+              </div>
+            </div>
+
+            <table class="items-table">
               <thead>
-                <tr class="bold">
-                  <td style="width: 50%;">Item</td>
-                  <td class="right" style="width: 20%;">Qty</td>
-                  <td class="right" style="width: 30%;">Price</td>
+                <tr>
+                  <th style="width: 15%;">Qty</th>
+                  <th style="width: 50%;">Particulars</th>
+                  <th class="right" style="width: 15%;">@</th>
+                  <th class="right" style="width: 20%;">Shs</th>
                 </tr>
               </thead>
               <tbody>
                 ${receiptItems.map(item => `
                   <tr>
+                    <td>${item.qty}</td>
                     <td>${item.name} ${item.size ? `(${item.size})` : ''}</td>
-                    <td class="right">${item.qty}</td>
-                    <td class="right">Ksh ${item.subtotal.toFixed(2)}</td>
+                    <td class="right">${item.price.toFixed(2)}</td>
+                    <td class="right">${item.subtotal.toFixed(2)}</td>
                   </tr>
                 `).join('')}
+                ${Array.from({ length: Math.max(0, 5 - receiptItems.length) }).map(() => `
+                  <tr><td>&nbsp;</td><td></td><td></td><td></td></tr>
+                `).join('')}
+                <tr class="total-row">
+                  <td colspan="2" style="border: none !important;">
+                    <span style="color: #166534; font-weight: bold;">E.&.O.E No.</span>
+                    <span style="color: #dc2626; font-size: 18px; margin-left: 5px;">${saleId}</span>
+                  </td>
+                  <td class="right">TOTAL</td>
+                  <td class="right">${totalVal.toFixed(2)}</td>
+                </tr>
               </tbody>
             </table>
-            <div class="divider"></div>
-            <table class="bold">
-              <tr>
-                <td>TOTAL</td>
-                <td class="right">Ksh ${totalVal.toFixed(2)}</td>
-              </tr>
-            </table>
-            <div class="divider"></div>
-            <div class="center footer">
-              Thank you for shopping with us!<br>
-              Goods once sold cannot be returned.<br>
-              Powered by UniStore.
+            
+            <div class="footer">
+              Thank you for shopping Davanis Uniforms.
             </div>
             <script>
               window.onload = function() {
@@ -557,27 +593,31 @@ function DailySalesModal({ stock, onClose, onSaved }) {
         {/* Receipt Mockup Preview */}
         <div className="border border-zinc-200 dark:border-zinc-800 p-4 rounded-lg bg-zinc-50 dark:bg-zinc-950 font-mono text-xs text-theme-primary space-y-3 shadow-inner">
           <div className="text-center space-y-0.5">
-            <h4 className="font-bold text-sm tracking-wide">DAVVANIS UNIFORMS</h4>
-            <p className="text-[10px] text-theme-muted">Workshop & Retail Outlet</p>
+            <h4 className="font-bold text-sm tracking-wide" style={{ color: '#166534' }}>DAVANIS UNIFORMS</h4>
+            <p className="text-[10px] text-theme-muted">School Uniforms / Corporate Wear / Embroidery & Branding</p>
+            <p className="text-[10px] text-theme-muted">Uhuru Market, Shop J-100, J-101 & Shop 6 Block C</p>
           </div>
           <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 pt-2 space-y-0.5 text-[10px] text-theme-secondary">
-            <div className="flex justify-between"><span>Receipt No:</span><span className="font-bold">#{saleId}</span></div>
+            {success.sale.client_name && <div className="flex justify-between"><span>M/S:</span><span className="font-bold">{success.sale.client_name}</span></div>}
+            <div className="flex justify-between"><span>Receipt No:</span><span className="font-bold text-red-600">#{saleId}</span></div>
             <div className="flex justify-between"><span>Date:</span><span>{saleDate}</span></div>
-            <div className="flex justify-between"><span>Status:</span><span className="font-bold text-emerald-600">PAID</span></div>
+            <div className="flex justify-between"><span>Payment:</span><span className="font-bold" style={{ color: '#166534' }}>{success.sale.payment_method || paymentMethod}</span></div>
+            <div className="flex justify-between"><span>Served By:</span><span className="font-bold">{success.sale.sold_by || 'Staff'}</span></div>
           </div>
           <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 my-2"></div>
           <div className="space-y-1">
             {receiptItems.map((item, idx) => (
               <div key={idx} className="flex justify-between">
-                <span>{item.name} {item.size ? `(${item.size})` : ''} x{item.qty}</span>
+                <span>{item.qty}x {item.name} {item.size ? `(${item.size})` : ''}</span>
                 <span>{KSH}{item.subtotal.toFixed(2)}</span>
               </div>
             ))}
           </div>
-          <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 pt-2 flex justify-between font-bold text-sm">
-            <span>TOTAL PAID</span>
+          <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 pt-2 flex justify-between font-bold text-sm" style={{ color: '#166534' }}>
+            <span>TOTAL</span>
             <span>{KSH}{totalVal.toFixed(2)}</span>
           </div>
+          <p className="text-center text-[10px] text-theme-muted italic">Thank you for shopping Davanis Uniforms.</p>
         </div>
 
         {/* Action Buttons */}
@@ -596,7 +636,7 @@ function DailySalesModal({ stock, onClose, onSaved }) {
         </div>
         
         <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-          <button type="button" onClick={() => { setSuccess(null); setItems([{ stock_id:'', qty_sold:'1', unit_price:'' }]); setNotes(''); setScanInput(''); setScanError(''); }} className="btn-secondary flex-1">Record Another Sale</button>
+          <button type="button" onClick={() => { setSuccess(null); setItems([{ stock_id:'', name: '', qty_sold:'1', unit_price:'' }]); setNotes(''); setClientName(''); setPaymentMethod('Cash'); setPin(''); setScanInput(''); setScanError(''); }} className="btn-secondary flex-1">Record Another Sale</button>
           <button type="button" onClick={onClose} className="btn-secondary flex-1">Close</button>
         </div>
       </div>
@@ -643,6 +683,24 @@ function DailySalesModal({ stock, onClose, onSaved }) {
           <input type="date" className="input" value={saleDate} onChange={e => setSaleDate(e.target.value)} />
         </div>
         <div>
+          <label className="label">Payment Method</label>
+          <select className="input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+            <option value="Cash">Cash</option>
+            <option value="Paybill">Paybill / Till</option>
+            <option value="Bank">Bank Transfer</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="label">Client Name <span className="text-theme-muted font-normal text-[10px]">(Optional)</span></label>
+          <input className="input" value={clientName} onChange={e => setClientName(e.target.value)} placeholder="For the receipt..." />
+        </div>
+        <div>
+          <label className="label">Staff PIN *</label>
+          <input type="password" maxLength="4" className="input font-mono" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 1234" required />
+        </div>
+        <div>
           <label className="label">Notes</label>
           <input className="input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Evening sales" />
         </div>
@@ -656,12 +714,14 @@ function DailySalesModal({ stock, onClose, onSaved }) {
         <div className="space-y-2">
           {items.map((item, idx) => {
             const si = stock.find(s => String(s.id) === String(item.stock_id));
+            const isCustom = item.stock_id === 'custom';
             return (
-              <div key={idx} className="grid gap-2 items-end" style={{ gridTemplateColumns:'1fr 80px 110px 28px' }}>
+              <div key={idx} className="grid gap-2 items-end" style={{ gridTemplateColumns: isCustom ? 'minmax(120px, 1fr) minmax(120px, 1fr) 80px 110px 28px' : '1fr 80px 110px 28px' }}>
                 <div>
                   {idx === 0 && <p className="text-xs text-theme-muted mb-1">Stock Item</p>}
                   <select className="input text-sm" value={item.stock_id} onChange={e => updateRow(idx,'stock_id',e.target.value)}>
                     <option value="">Select...</option>
+                    <option value="custom" className="font-bold text-indigo-600 bg-indigo-50">➕ Custom Item (Not in stock)</option>
                     {stock.filter(s => (s.quantity || 0) > 0).map(s => (
                       <option key={s.id} value={s.id}>
                         {s.name}{s.size ? ` (${s.size})` : ''} — {s.quantity} left
@@ -669,18 +729,24 @@ function DailySalesModal({ stock, onClose, onSaved }) {
                     ))}
                   </select>
                 </div>
+                {isCustom && (
+                  <div>
+                    {idx === 0 && <p className="text-xs text-theme-muted mb-1">Item Name</p>}
+                    <input type="text" className="input text-sm" placeholder="e.g. Sweater Red" value={item.name} onChange={e => updateRow(idx, 'name', e.target.value)} />
+                  </div>
+                )}
                 <div>
-                  {idx === 0 && <p className="text-xs text-theme-muted mb-1">Qty Sold</p>}
-                  <input type="number" min="1" max={si?.quantity || undefined} className="input text-sm"
+                  {idx === 0 && <p className="text-xs text-theme-muted mb-1">Qty</p>}
+                  <input type="number" min="1" max={!isCustom ? (si?.quantity || undefined) : undefined} className="input text-sm"
                     value={item.qty_sold} onChange={e => updateRow(idx,'qty_sold',e.target.value)} />
                 </div>
                 <div>
-                  {idx === 0 && <p className="text-xs text-theme-muted mb-1">Unit Price (Ksh)</p>}
+                  {idx === 0 && <p className="text-xs text-theme-muted mb-1">Price</p>}
                   <input type="number" min="0" step="0.01" className="input text-sm"
                     value={item.unit_price} onChange={e => updateRow(idx,'unit_price',e.target.value)} placeholder="0" />
                 </div>
                 <button type="button" onClick={() => removeRow(idx)} disabled={items.length === 1}
-                  className="mb-0.5 w-7 h-7 rounded flex items-center justify-center text-xs font-bold"
+                  className="mb-0.5 w-7 h-7 rounded flex items-center justify-center text-xs font-bold shrink-0"
                   style={{ backgroundColor: items.length===1?'var(--bg-muted)':'#fee2e2', color: items.length===1?'var(--text-muted)':'#ef4444' }}>
                   x
                 </button>
@@ -743,8 +809,9 @@ function SalesHistoryModal({ onClose }) {
                 {new Date(String(sale.sale_date).split('T')[0] + 'T00:00:00').toLocaleDateString('en-KE', { weekday:'short', day:'numeric', month:'short', year:'numeric' })}
               </span>
               {sale.notes && <span className="ml-2 text-xs text-theme-muted">— {sale.notes}</span>}
-              <div className="text-xs text-theme-secondary mt-0.5">
-                {(sale.items||[]).length} item{sale.items?.length!==1?'s':''} sold
+              <div className="text-xs text-theme-secondary mt-0.5 flex items-center gap-2 flex-wrap">
+                <span>{(sale.items||[]).length} item{sale.items?.length!==1?'s':''} sold</span>
+                {sale.sold_by && <span className="inline-block px-2 py-0.5 rounded font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400">👤 {sale.sold_by}</span>}
               </div>
             </div>
             <div className="text-right">
@@ -783,6 +850,7 @@ function SalesHistoryModal({ onClose }) {
 // Main StockManager component
 export default function StockManager({ user }) {
   const [stock, setStock] = useState([]);
+  const [adminStockView, setAdminStockView] = useState('shop');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -949,13 +1017,20 @@ export default function StockManager({ user }) {
     setPrintTagItem(item);
   };
 
-  const displayStock = (user?.role === 'workshop'
-    ? stock.filter(item => item.source_type === 'manufactured')
-    : stock
+  const isWorkshop = user?.role === 'workshop' || (user?.role === 'admin' && adminStockView === 'workshop');
+
+  const displayStock = (
+    isWorkshop
+      ? stock.filter(item => item.source_type === 'manufactured')
+      : stock
   ).filter(item => {
     if (showZeroStock) return true;
     return (item.quantity || 0) > 0 || (item.workshop_quantity || 0) > 0 || (item.embroidery_quantity || 0) > 0;
   });
+
+  const headers = isWorkshop
+    ? ['Name','Category','Size','Source','Workshop Qty','Actions']
+    : ['Name','Category','Size','Source','Shop Qty','Embroidery Qty','Price','Barcode','Actions'];
 
   const sweaters = displayStock.filter(item => item.category === 'Sweaters');
   const nonSweaters = displayStock.filter(item => item.category !== 'Sweaters');
@@ -989,7 +1064,7 @@ export default function StockManager({ user }) {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold text-theme-primary">
-            {user?.role === 'workshop' ? 'Workshop Stock Control' : 'Stock Manager'}
+            {isWorkshop ? 'Workshop Stock Control' : 'Stock Manager'}
           </h2>
           <p className="text-sm mt-1 text-theme-secondary">{displayStock.length} items in inventory</p>
           <label className="flex items-center gap-2 text-xs text-theme-secondary cursor-pointer mt-1.5">
@@ -1003,20 +1078,38 @@ export default function StockManager({ user }) {
           </label>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
-          {user?.role !== 'workshop' && (
+          {!isWorkshop && (
             <>
               <button onClick={() => setShowHistory(true)} className="btn-secondary text-sm">📋 Sales History</button>
               <button onClick={() => setShowSales(true)} className="btn-primary text-sm">💰 Record Daily Sales</button>
             </>
           )}
+          {isWorkshop && (
+            <button onClick={() => { setProdSearch(''); setSelectedProdStyle(null); setProdQuantities({}); setFormError(''); setShowProductionModal(true); }} className="btn-secondary text-sm">🧶 Log Production</button>
+          )}
           {(user?.role === 'admin' || user?.role === 'workshop') && (
-            <>
-              <button onClick={() => { setProdSearch(''); setSelectedProdStyle(null); setProdQuantities({}); setFormError(''); setShowProductionModal(true); }} className="btn-secondary text-sm">🧶 Log Production</button>
-              <button onClick={openAdd} className="btn-primary text-sm">+ Add Stock</button>
-            </>
+            <button onClick={openAdd} className="btn-primary text-sm">+ Add Stock</button>
           )}
         </div>
       </div>
+
+      {/* Admin Tab Selector */}
+      {user?.role === 'admin' && (
+        <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-1.5">
+          <button
+            onClick={() => setAdminStockView('shop')}
+            className={`px-4 py-2.5 text-xs uppercase tracking-wider font-bold border-b-2 transition-colors ${adminStockView === 'shop' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
+          >
+            🏪 Shop Inventory
+          </button>
+          <button
+            onClick={() => setAdminStockView('workshop')}
+            className={`px-4 py-2.5 text-xs uppercase tracking-wider font-bold border-b-2 transition-colors ${adminStockView === 'workshop' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
+          >
+            🧶 Workshop Inventory
+          </button>
+        </div>
+      )}
 
       {/* Stock table / cards */}
       <div className="card overflow-hidden">
@@ -1030,7 +1123,7 @@ export default function StockManager({ user }) {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead style={{ backgroundColor:'var(--bg-muted)', borderBottom:'1px solid var(--border)' }}>
-                  <tr>{['Name','Category','Size','Source','Shop Qty','Workshop Qty','Embroidery Qty','Price','Barcode','Actions'].map(h=>(
+                  <tr>{headers.map(h=>(
                     <th key={h} className="text-left py-3 px-4 text-xs uppercase tracking-wide text-theme-secondary font-medium">{h}</th>
                   ))}</tr>
                 </thead>
@@ -1045,42 +1138,52 @@ export default function StockManager({ user }) {
                           <td className="py-3 px-4 text-theme-secondary">{item.category||'--'}</td>
                           <td className="py-3 px-4 text-theme-secondary">{item.size||'--'}</td>
                           <td className="py-3 px-4 text-theme-secondary capitalize">{item.source_type}</td>
-                          <td className="py-3 px-4">
-                            {user?.role !== 'workshop' && item.source_type === 'purchased' ? (
-                              editingQty === item.id
-                                ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
-                                : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>
-                            ) : (
-                              <span style={qtyStyle(item)}>{item.quantity}</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-theme-secondary">
-                            {item.source_type === 'manufactured' ? (
-                              (user?.role === 'workshop' || user?.role === 'admin') ? (
-                                editingWorkshopQty === item.id
-                                  ? <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);if(e.key==='Escape')setEditingWorkshopQty(null);}} className="input w-20" />
-                                  : <button onClick={()=>{setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}} className="hover:underline font-semibold text-theme-primary">{item.workshop_quantity}</button>
-                              ) : (
-                                <span className="font-semibold text-theme-primary">{item.workshop_quantity}</span>
-                              )
-                            ) : '—'}
-                          </td>
-                          <td className="py-3 px-4 text-theme-secondary">
-                            {item.source_type === 'manufactured' ? (
-                              <span className="font-semibold" style={{ color: '#a855f7' }}>{item.embroidery_quantity || 0}</span>
-                            ) : '—'}
-                          </td>
-                          <td className="py-3 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
-                          <td className="py-3 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
-                          <td className="py-3 px-4">
-                            {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
-                              <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
-                            )}
-                            {user?.role === 'admin' && (
-                              <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium mr-3" style={{ color:'#ef4444' }}>Delete</button>
-                            )}
-                            <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
-                          </td>
+                          {isWorkshop ? (
+                            <>
+                              <td className="py-3 px-4 text-theme-secondary">
+                                {item.source_type === 'manufactured' ? (
+                                  (user?.role === 'workshop' || user?.role === 'admin') ? (
+                                    editingWorkshopQty === item.id
+                                      ? <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);if(e.key==='Escape')setEditingWorkshopQty(null);}} className="input w-20" />
+                                      : <button onClick={()=>{setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}} className="hover:underline font-semibold text-theme-primary">{item.workshop_quantity}</button>
+                                  ) : (
+                                    <span className="font-semibold text-theme-primary">{item.workshop_quantity}</span>
+                                  )
+                                ) : '—'}
+                              </td>
+                              <td className="py-3 px-4">
+                                {(user?.role === 'workshop' || user?.role === 'admin') && item.source_type === 'manufactured' && (
+                                  <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
+                                )}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="py-3 px-4">
+                                {item.source_type === 'purchased' ? (
+                                  editingQty === item.id
+                                    ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
+                                    : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>
+                                ) : (
+                                  <span style={qtyStyle(item)}>{item.quantity}</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-theme-secondary">
+                                {item.source_type === 'manufactured' ? (
+                                  <span className="font-semibold" style={{ color: '#a855f7' }}>{item.embroidery_quantity || 0}</span>
+                                ) : '—'}
+                              </td>
+                              <td className="py-3 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
+                              <td className="py-3 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
+                              <td className="py-3 px-4">
+                                <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
+                                {user?.role === 'admin' && (
+                                  <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium mr-3" style={{ color:'#ef4444' }}>Delete</button>
+                                )}
+                                <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
+                              </td>
+                            </>
+                          )}
                         </tr>
                       );
                     }
@@ -1108,19 +1211,34 @@ export default function StockManager({ user }) {
                           <td className="py-3 px-4 text-theme-secondary">{firstItem.category}</td>
                           <td className="py-3 px-4 text-theme-secondary font-medium">Mixed</td>
                           <td className="py-3 px-4 text-theme-secondary capitalize">{firstItem.source_type}</td>
-                          <td className="py-3 px-4 text-indigo-600 font-bold">{totalShopQty}</td>
-                          <td className="py-3 px-4 text-indigo-600 font-bold">{totalWorkshopQty}</td>
-                          <td className="py-3 px-4 font-bold" style={{ color: '#a855f7' }}>{totalEmbroideryQty > 0 ? totalEmbroideryQty : '—'}</td>
-                          <td className="py-3 px-4 text-theme-secondary">—</td>
-                          <td className="py-3 px-4 text-theme-secondary">—</td>
-                          <td className="py-3 px-4">
-                            <button
-                              onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
-                              className="text-xs font-semibold text-indigo-600 hover:underline"
-                            >
-                              {isExpanded ? 'Collapse' : 'Expand'}
-                            </button>
-                          </td>
+                          {isWorkshop ? (
+                            <>
+                              <td className="py-3 px-4 text-indigo-600 font-bold">{totalWorkshopQty}</td>
+                              <td className="py-3 px-4">
+                                <button
+                                  onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
+                                  className="text-xs font-semibold text-indigo-600 hover:underline"
+                                >
+                                  {isExpanded ? 'Collapse' : 'Expand'}
+                                </button>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="py-3 px-4 text-indigo-600 font-bold">{totalShopQty}</td>
+                              <td className="py-3 px-4 font-bold" style={{ color: '#a855f7' }}>{totalEmbroideryQty > 0 ? totalEmbroideryQty : '—'}</td>
+                              <td className="py-3 px-4 text-theme-secondary">—</td>
+                              <td className="py-3 px-4 text-theme-secondary">—</td>
+                              <td className="py-3 px-4">
+                                <button
+                                  onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
+                                  className="text-xs font-semibold text-indigo-600 hover:underline"
+                                >
+                                  {isExpanded ? 'Collapse' : 'Expand'}
+                                </button>
+                              </td>
+                            </>
+                          )}
                         </tr>
 
                         {isExpanded && styleItems.map(item => (
@@ -1129,42 +1247,52 @@ export default function StockManager({ user }) {
                             <td className="py-2.5 px-4 text-theme-muted">{item.category}</td>
                             <td className="py-2.5 px-4 text-theme-secondary">{item.size || '--'}</td>
                             <td className="py-2.5 px-4 text-theme-secondary capitalize">{item.source_type}</td>
-                            <td className="py-2.5 px-4">
-                              {user?.role !== 'workshop' && item.source_type === 'purchased' ? (
-                                editingQty === item.id
-                                  ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
-                                  : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>
-                              ) : (
-                                <span style={qtyStyle(item)}>{item.quantity}</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-4 text-theme-secondary">
-                              {item.source_type === 'manufactured' ? (
-                                (user?.role === 'workshop' || user?.role === 'admin') ? (
-                                  editingWorkshopQty === item.id
-                                    ? <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);if(e.key==='Escape')setEditingWorkshopQty(null);}} className="input w-20" />
-                                    : <button onClick={()=>{setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}} className="hover:underline font-semibold text-theme-primary">{item.workshop_quantity}</button>
-                                ) : (
-                                  <span className="font-semibold text-theme-primary">{item.workshop_quantity}</span>
-                                )
-                              ) : '—'}
-                            </td>
-                            <td className="py-2.5 px-4 text-theme-secondary">
-                              {item.source_type === 'manufactured' ? (
-                                <span className="font-semibold" style={{ color: '#a855f7' }}>{item.embroidery_quantity || 0}</span>
-                              ) : '—'}
-                            </td>
-                            <td className="py-2.5 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
-                            <td className="py-2.5 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
-                            <td className="py-2.5 px-4">
-                              {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
-                                <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
-                              )}
-                              {user?.role === 'admin' && (
-                                <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium mr-3" style={{ color:'#ef4444' }}>Delete</button>
-                              )}
-                              <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
-                            </td>
+                            {isWorkshop ? (
+                              <>
+                                <td className="py-2.5 px-4 text-theme-secondary">
+                                  {item.source_type === 'manufactured' ? (
+                                    (user?.role === 'workshop' || user?.role === 'admin') ? (
+                                      editingWorkshopQty === item.id
+                                        ? <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);if(e.key==='Escape')setEditingWorkshopQty(null);}} className="input w-20" />
+                                        : <button onClick={()=>{setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}} className="hover:underline font-semibold text-theme-primary">{item.workshop_quantity}</button>
+                                    ) : (
+                                      <span className="font-semibold text-theme-primary">{item.workshop_quantity}</span>
+                                    )
+                                  ) : '—'}
+                                </td>
+                                <td className="py-2.5 px-4">
+                                  {(user?.role === 'workshop' || user?.role === 'admin') && item.source_type === 'manufactured' && (
+                                    <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
+                                  )}
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="py-2.5 px-4">
+                                  {item.source_type === 'purchased' ? (
+                                    editingQty === item.id
+                                      ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
+                                      : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>
+                                  ) : (
+                                    <span style={qtyStyle(item)}>{item.quantity}</span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-4 text-theme-secondary">
+                                  {item.source_type === 'manufactured' ? (
+                                    <span className="font-semibold" style={{ color: '#a855f7' }}>{item.embroidery_quantity || 0}</span>
+                                  ) : '—'}
+                                </td>
+                                <td className="py-2.5 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
+                                <td className="py-2.5 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
+                                <td className="py-2.5 px-4">
+                                  <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
+                                  {user?.role === 'admin' && (
+                                    <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium mr-3" style={{ color:'#ef4444' }}>Delete</button>
+                                  )}
+                                  <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
+                                </td>
+                              </>
+                            )}
                           </tr>
                         ))}
                       </React.Fragment>
@@ -1187,19 +1315,34 @@ export default function StockManager({ user }) {
                         <td className="py-3 px-4 text-theme-secondary">Sweaters</td>
                         <td className="py-3 px-4 text-theme-secondary">—</td>
                         <td className="py-3 px-4 text-theme-secondary capitalize">Mixed</td>
-                        <td className="py-3 px-4 text-indigo-600 font-bold">{totalSweaterShopQty}</td>
-                        <td className="py-3 px-4 text-indigo-600 font-bold">{totalSweaterWorkshopQty}</td>
-                        <td className="py-3 px-4 font-bold" style={{ color: '#a855f7' }}>{totalSweaterEmbroideryQty > 0 ? totalSweaterEmbroideryQty : '—'}</td>
-                        <td className="py-3 px-4 text-theme-secondary">—</td>
-                        <td className="py-3 px-4 text-theme-secondary">—</td>
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() => setSweatersExpanded(!sweatersExpanded)}
-                            className="text-xs font-semibold text-indigo-600 hover:underline"
-                          >
-                            {sweatersExpanded ? 'Collapse' : 'Expand All'}
-                          </button>
-                        </td>
+                        {isWorkshop ? (
+                          <>
+                            <td className="py-3 px-4 text-indigo-600 font-bold">{totalSweaterWorkshopQty}</td>
+                            <td className="py-3 px-4">
+                              <button
+                                onClick={() => setSweatersExpanded(!sweatersExpanded)}
+                                className="text-xs font-semibold text-indigo-600 hover:underline"
+                              >
+                                {sweatersExpanded ? 'Collapse' : 'Expand All'}
+                              </button>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="py-3 px-4 text-indigo-600 font-bold">{totalSweaterShopQty}</td>
+                            <td className="py-3 px-4 font-bold" style={{ color: '#a855f7' }}>{totalSweaterEmbroideryQty > 0 ? totalSweaterEmbroideryQty : '—'}</td>
+                            <td className="py-3 px-4 text-theme-secondary">—</td>
+                            <td className="py-3 px-4 text-theme-secondary">—</td>
+                            <td className="py-3 px-4">
+                              <button
+                                onClick={() => setSweatersExpanded(!sweatersExpanded)}
+                                className="text-xs font-semibold text-indigo-600 hover:underline"
+                              >
+                                {sweatersExpanded ? 'Collapse' : 'Expand All'}
+                              </button>
+                            </td>
+                          </>
+                        )}
                       </tr>
                       {sweatersExpanded && Object.keys(sweatersGroupedByStyle).map(styleName => {
                         const styleItems = sweatersGroupedByStyle[styleName];
@@ -1225,19 +1368,34 @@ export default function StockManager({ user }) {
                               <td className="py-2.5 px-4 text-theme-secondary">Sweaters</td>
                               <td className="py-2.5 px-4 text-theme-secondary font-medium">Sizes 22-40</td>
                               <td className="py-2.5 px-4 text-theme-secondary capitalize">Manufactured</td>
-                              <td className="py-2.5 px-4 text-theme-primary font-semibold">{styleShopQty}</td>
-                              <td className="py-2.5 px-4 text-theme-primary font-semibold">{styleWorkshopQty}</td>
-                              <td className="py-2.5 px-4 font-semibold" style={{ color: '#a855f7' }}>{styleEmbroideryQty > 0 ? styleEmbroideryQty : '—'}</td>
-                              <td className="py-2.5 px-4 text-theme-secondary">—</td>
-                              <td className="py-2.5 px-4 text-theme-secondary">—</td>
-                              <td className="py-2.5 px-4">
-                                <button
-                                  onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
-                                  className="text-xs font-semibold text-indigo-600 hover:underline"
-                                >
-                                  {isStyleExpanded ? 'Hide Sizes' : 'Show Sizes'}
-                                </button>
-                              </td>
+                              {isWorkshop ? (
+                                <>
+                                  <td className="py-2.5 px-4 text-theme-primary font-semibold">{styleWorkshopQty}</td>
+                                  <td className="py-2.5 px-4">
+                                    <button
+                                      onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
+                                      className="text-xs font-semibold text-indigo-600 hover:underline"
+                                    >
+                                      {isStyleExpanded ? 'Hide Sizes' : 'Show Sizes'}
+                                    </button>
+                                  </td>
+                                </>
+                              ) : (
+                                <>
+                                  <td className="py-2.5 px-4 text-theme-primary font-semibold">{styleShopQty}</td>
+                                  <td className="py-2.5 px-4 font-semibold" style={{ color: '#a855f7' }}>{styleEmbroideryQty > 0 ? styleEmbroideryQty : '—'}</td>
+                                  <td className="py-2.5 px-4 text-theme-secondary">—</td>
+                                  <td className="py-2.5 px-4 text-theme-secondary">—</td>
+                                  <td className="py-2.5 px-4">
+                                    <button
+                                      onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
+                                      className="text-xs font-semibold text-indigo-600 hover:underline"
+                                    >
+                                      {isStyleExpanded ? 'Hide Sizes' : 'Show Sizes'}
+                                    </button>
+                                  </td>
+                                </>
+                              )}
                             </tr>
 
                             {/* Render individual sizes only if expanded */}
@@ -1247,40 +1405,52 @@ export default function StockManager({ user }) {
                                 <td className="py-2 px-4 text-theme-muted">{item.category}</td>
                                 <td className="py-2 px-4 text-theme-secondary">{item.size}</td>
                                 <td className="py-2 px-4 text-theme-secondary capitalize">{item.source_type}</td>
-                                <td className="py-2 px-4">
-                                  {user?.role !== 'workshop' && item.source_type === 'purchased' ? (
-                                    editingQty === item.id
-                                      ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
-                                      : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>
-                                  ) : (
-                                    <span style={qtyStyle(item)}>{item.quantity}</span>
-                                  )}
-                                </td>
-                                <td className="py-2 px-4 text-theme-secondary">
-                                  {item.source_type === 'manufactured' ? (
-                                    (user?.role === 'workshop' || user?.role === 'admin') ? (
-                                      editingWorkshopQty === item.id
-                                        ? <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);if(e.key==='Escape')setEditingWorkshopQty(null);}} className="input w-20" />
-                                        : <button onClick={()=>{setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}} className="hover:underline font-semibold text-theme-primary">{item.workshop_quantity}</button>
-                                    ) : (
-                                      <span className="font-semibold text-theme-primary">{item.workshop_quantity}</span>
-                                    )
-                                  ) : '—'}
-                                </td>
-                                <td className="py-2 px-4 text-theme-secondary">
-                                  <span className="font-semibold" style={{ color: '#a855f7' }}>{item.embroidery_quantity || 0}</span>
-                                </td>
-                                <td className="py-2 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
-                                <td className="py-2 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
-                                <td className="py-2 px-4">
-                                  {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
-                                    <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
-                                  )}
-                                  {user?.role === 'admin' && (
-                                    <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium mr-3" style={{ color:'#ef4444' }}>Delete</button>
-                                  )}
-                                  <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
-                                </td>
+                                {isWorkshop ? (
+                                  <>
+                                    <td className="py-2 px-4 text-theme-secondary">
+                                      {item.source_type === 'manufactured' ? (
+                                        (user?.role === 'workshop' || user?.role === 'admin') ? (
+                                          editingWorkshopQty === item.id
+                                            ? <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);if(e.key==='Escape')setEditingWorkshopQty(null);}} className="input w-20" />
+                                            : <button onClick={()=>{setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}} className="hover:underline font-semibold text-theme-primary">{item.workshop_quantity}</button>
+                                        ) : (
+                                          <span className="font-semibold text-theme-primary">{item.workshop_quantity}</span>
+                                        )
+                                      ) : '—'}
+                                    </td>
+                                    <td className="py-2 px-4">
+                                      {(user?.role === 'workshop' || user?.role === 'admin') && item.source_type === 'manufactured' && (
+                                        <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
+                                      )}
+                                    </td>
+                                  </>
+                                ) : (
+                                  <>
+                                    <td className="py-2 px-4">
+                                      {item.source_type === 'purchased' ? (
+                                        editingQty === item.id
+                                          ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);if(e.key==='Escape')setEditingQty(null);}} className="input w-20" />
+                                          : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={qtyStyle(item)} className="hover:underline">{item.quantity}</button>
+                                      ) : (
+                                        <span style={qtyStyle(item)}>{item.quantity}</span>
+                                      )}
+                                    </td>
+                                    <td className="py-2 px-4 text-theme-secondary">
+                                      {item.source_type === 'manufactured' ? (
+                                        <span className="font-semibold" style={{ color: '#a855f7' }}>{item.embroidery_quantity || 0}</span>
+                                      ) : '—'}
+                                    </td>
+                                    <td className="py-2 px-4 text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</td>
+                                    <td className="py-2 px-4 text-theme-secondary font-mono text-xs">{item.barcode||'--'}</td>
+                                    <td className="py-2 px-4">
+                                      <button onClick={()=>openEdit(item)} className="text-xs font-medium mr-3" style={{ color:'#6366f1' }}>Edit</button>
+                                      {user?.role === 'admin' && (
+                                        <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium mr-3" style={{ color:'#ef4444' }}>Delete</button>
+                                      )}
+                                      <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
+                                    </td>
+                                  </>
+                                )}
                               </tr>
                             ))}
                           </React.Fragment>
@@ -1305,40 +1475,46 @@ export default function StockManager({ user }) {
                           <p className="text-xs text-theme-secondary">
                             {item.category||'--'}{item.size?` - ${item.size}`:''} • <span className="capitalize">{item.source_type}</span>
                           </p>
-                          {item.barcode && <p className="text-xs text-theme-muted font-mono mt-0.5">BC: {item.barcode}</p>}
+                          {!isWorkshop && item.barcode && <p className="text-xs text-theme-muted font-mono mt-0.5">BC: {item.barcode}</p>}
                         </div>
                         <div className="text-right">
-                          {user?.role !== 'workshop' && item.source_type === 'purchased' ? (
-                            editingQty===item.id
-                              ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);}} className="input w-20" />
-                              : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={{ ...qtyStyle(item), fontSize:'1.1rem' }} className="hover:underline">{item.quantity}</button>
-                          ) : (
-                            <span style={{ ...qtyStyle(item), fontSize:'1.1rem' }}>{item.quantity}</span>
-                          )}
-                          <p className="text-xs text-theme-muted">shop qty</p>
-                          {item.source_type === 'manufactured' && (
-                            editingWorkshopQty === item.id ? (
-                              <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);}} className="input w-20 mt-1" />
-                            ) : (
-                              <button onClick={()=>{if(user?.role==='workshop'||user?.role==='admin'){setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}}} className="text-xs text-theme-secondary hover:underline mt-1 block">
-                                Workshop: <strong>{item.workshop_quantity}</strong>
-                              </button>
+                          {isWorkshop ? (
+                            item.source_type === 'manufactured' && (
+                              editingWorkshopQty === item.id ? (
+                                <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);}} className="input w-20" />
+                              ) : (
+                                <button onClick={()=>{if(user?.role==='workshop'||user?.role==='admin'){setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}}} style={{ fontSize:'1.1rem' }} className="text-theme-secondary hover:underline block font-semibold">
+                                  {item.workshop_quantity}
+                                </button>
+                              )
                             )
+                          ) : (
+                            <>
+                              {user?.role !== 'workshop' && item.source_type === 'purchased' ? (
+                                editingQty===item.id
+                                  ? <input ref={qtyRef} type="number" min="0" value={qtyValue} onChange={e=>setQtyValue(e.target.value)} onBlur={()=>saveQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveQty(item);}} className="input w-20" />
+                                  : <button onClick={()=>{setEditingQty(item.id);setQtyValue(String(item.quantity));}} style={{ ...qtyStyle(item), fontSize:'1.1rem' }} className="hover:underline">{item.quantity}</button>
+                              ) : (
+                                <span style={{ ...qtyStyle(item), fontSize:'1.1rem' }}>{item.quantity}</span>
+                              )}
+                              <p className="text-xs text-theme-muted font-medium">shop qty</p>
+                            </>
                           )}
+                          {isWorkshop && <p className="text-xs text-theme-muted font-medium">workshop qty</p>}
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex gap-3 text-xs text-theme-secondary">
-                          <span>Price: <strong className="text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</strong></span>
+                          {!isWorkshop && <span>Price: <strong className="text-theme-primary">{item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</strong></span>}
                         </div>
                         <div className="flex gap-3">
-                          {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
+                          {((isWorkshop && item.source_type === 'manufactured') || !isWorkshop) && (
                             <button onClick={()=>openEdit(item)} className="text-xs font-medium" style={{ color:'#6366f1' }}>Edit</button>
                           )}
                           {user?.role === 'admin' && (
                             <button onClick={()=>setDeleteConfirm(item)} className="text-xs font-medium" style={{ color:'#ef4444' }}>Delete</button>
                           )}
-                          <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>
+                          {!isWorkshop && <button onClick={()=>handlePrintTag(item)} className="text-xs font-medium text-emerald-600 hover:underline">🏷️ Tag</button>}
                         </div>
                       </div>
                     </div>
@@ -1358,7 +1534,11 @@ export default function StockManager({ user }) {
                         <p className="font-semibold text-theme-primary">{styleName}</p>
                         <p className="text-xs text-theme-secondary">{firstItem.category} • {styleItems.length} sizes</p>
                         <p className="text-[11px] text-theme-secondary mt-0.5">
-                          Shop: <strong className="text-theme-primary">{totalShopQty}</strong> | Worksp: <strong className="text-theme-primary">{totalWorkshopQty}</strong>
+                          {isWorkshop ? (
+                            <>Worksp: <strong className="text-theme-primary">{totalWorkshopQty}</strong></>
+                          ) : (
+                            <>Shop: <strong className="text-theme-primary">{totalShopQty}</strong></>
+                          )}
                         </p>
                       </div>
                       <button
@@ -1380,28 +1560,38 @@ export default function StockManager({ user }) {
                                 <p className="text-[10px] text-theme-muted">{item.source_type}</p>
                               </div>
                               <div className="text-right">
-                                <span style={{ ...qtyStyle(item), fontSize:'0.9rem' }}>Shop: {item.quantity}</span>
-                                {item.source_type === 'manufactured' && (
-                                  editingWorkshopQty === item.id ? (
-                                    <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);}} className="input w-16 mt-0.5" />
-                                  ) : (
-                                    <button onClick={()=>{if(user?.role==='workshop'||user?.role==='admin'){setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}}} className="text-[10px] text-theme-secondary hover:underline block mt-0.5">
-                                      Worksp: <strong>{item.workshop_quantity}</strong>
-                                    </button>
+                                {isWorkshop ? (
+                                  item.source_type === 'manufactured' && (
+                                    editingWorkshopQty === item.id ? (
+                                      <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);}} className="input w-16 mt-0.5" />
+                                    ) : (
+                                      <button onClick={()=>{if(user?.role==='workshop'||user?.role==='admin'){setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}}} className="text-[10px] text-theme-secondary hover:underline block mt-0.5 font-bold">
+                                        Worksp: {item.workshop_quantity}
+                                      </button>
+                                    )
                                   )
+                                ) : (
+                                  <>
+                                    <span style={{ ...qtyStyle(item), fontSize:'0.9rem' }}>Shop: {item.quantity}</span>
+                                    {item.source_type === 'manufactured' && (
+                                      <span className="text-[10px] text-theme-secondary block mt-0.5 font-bold">
+                                        Emb: {item.embroidery_quantity || 0}
+                                      </span>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </div>
                             <div className="flex items-center justify-between text-[11px] mt-1">
-                              <span className="text-theme-muted">Price: {item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</span>
+                              <span className="text-theme-muted">{!isWorkshop && `Price: ${item.price!=null?KSH+Number(item.price).toFixed(2):'--'}`}</span>
                               <div className="flex gap-2">
-                                {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
+                                {((isWorkshop && item.source_type === 'manufactured') || !isWorkshop) && (
                                   <button onClick={()=>openEdit(item)} className="text-indigo-600 font-medium">Edit</button>
                                 )}
                                 {user?.role === 'admin' && (
                                   <button onClick={()=>setDeleteConfirm(item)} className="text-red-500 font-medium">Delete</button>
                                 )}
-                                <button onClick={()=>handlePrintTag(item)} className="text-emerald-600 font-medium">Tag</button>
+                                {!isWorkshop && <button onClick={()=>handlePrintTag(item)} className="text-emerald-600 font-medium">Tag</button>}
                               </div>
                             </div>
                           </div>
@@ -1418,7 +1608,11 @@ export default function StockManager({ user }) {
                     <div>
                       <p className="font-bold text-theme-primary text-sm">🧶 Sweaters Group ({sweaters.length} items)</p>
                       <p className="text-[11px] text-theme-secondary mt-0.5">
-                        Shop: <strong className="text-theme-primary">{totalSweaterShopQty}</strong> | Workshop: <strong className="text-theme-primary">{totalSweaterWorkshopQty}</strong>
+                        {isWorkshop ? (
+                          <>Worksp: <strong className="text-theme-primary">{totalSweaterWorkshopQty}</strong></>
+                        ) : (
+                          <>Shop: <strong className="text-theme-primary">{totalSweaterShopQty}</strong></>
+                        )}
                       </p>
                     </div>
                     <button
@@ -1443,7 +1637,13 @@ export default function StockManager({ user }) {
                             <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-zinc-900 border" style={{ borderColor: 'var(--border)' }}>
                               <div>
                                 <p className="font-semibold text-xs text-theme-primary">{styleName}</p>
-                                <p className="text-[10px] text-theme-muted mt-0.5">Shop: {styleShopQty} | Worksp: {styleWorkshopQty}</p>
+                                <p className="text-[10px] text-theme-muted mt-0.5">
+                                  {isWorkshop ? (
+                                    <>Worksp: {styleWorkshopQty}</>
+                                  ) : (
+                                    <>Shop: {styleShopQty}</>
+                                  )}
+                                </p>
                               </div>
                               <button
                                 onClick={() => setExpandedStyles(prev => ({ ...prev, [styleName]: !prev[styleName] }))}
@@ -1463,28 +1663,38 @@ export default function StockManager({ user }) {
                                         <p className="text-[9px] text-theme-muted">{item.source_type}</p>
                                       </div>
                                       <div className="text-right">
-                                        <span style={{ ...qtyStyle(item), fontSize:'0.9rem' }}>Shop: {item.quantity}</span>
-                                        {item.source_type === 'manufactured' && (
-                                          editingWorkshopQty === item.id ? (
-                                            <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);}} className="input w-16 mt-0.5" />
-                                          ) : (
-                                            <button onClick={()=>{if(user?.role==='workshop'||user?.role==='admin'){setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}}} className="text-[10px] text-theme-secondary hover:underline block mt-0.5">
-                                              Worksp: <strong>{item.workshop_quantity}</strong>
-                                            </button>
+                                        {isWorkshop ? (
+                                          item.source_type === 'manufactured' && (
+                                            editingWorkshopQty === item.id ? (
+                                              <input ref={qtyRef} type="number" min="0" value={workshopQtyValue} onChange={e=>setWorkshopQtyValue(e.target.value)} onBlur={()=>saveWorkshopQty(item)} onKeyDown={e=>{if(e.key==='Enter')saveWorkshopQty(item);}} className="input w-16 mt-0.5" />
+                                            ) : (
+                                              <button onClick={()=>{if(user?.role==='workshop'||user?.role==='admin'){setEditingWorkshopQty(item.id);setWorkshopQtyValue(String(item.workshop_quantity));}}} className="text-[10px] text-theme-secondary hover:underline block mt-0.5 font-bold">
+                                                Worksp: {item.workshop_quantity}
+                                              </button>
+                                            )
                                           )
+                                        ) : (
+                                          <>
+                                            <span style={{ ...qtyStyle(item), fontSize:'0.9rem' }}>Shop: {item.quantity}</span>
+                                            {item.source_type === 'manufactured' && (
+                                              <span className="text-[10px] text-theme-secondary block mt-0.5 font-bold">
+                                                Emb: {item.embroidery_quantity || 0}
+                                              </span>
+                                            )}
+                                          </>
                                         )}
                                       </div>
                                     </div>
                                     <div className="flex items-center justify-between text-[11px] mt-1">
-                                      <span className="text-theme-muted">Price: {item.price!=null?KSH+Number(item.price).toFixed(2):'--'}</span>
+                                      <span className="text-theme-muted">{!isWorkshop && `Price: ${item.price!=null?KSH+Number(item.price).toFixed(2):'--'}`}</span>
                                       <div className="flex gap-2">
-                                        {(user?.role !== 'workshop' || item.source_type === 'manufactured') && (
+                                        {((isWorkshop && item.source_type === 'manufactured') || !isWorkshop) && (
                                           <button onClick={()=>openEdit(item)} className="text-indigo-600 font-medium">Edit</button>
                                         )}
                                         {user?.role === 'admin' && (
                                           <button onClick={()=>setDeleteConfirm(item)} className="text-red-500 font-medium">Delete</button>
                                         )}
-                                        <button onClick={()=>handlePrintTag(item)} className="text-emerald-600 font-medium">Tag</button>
+                                        {!isWorkshop && <button onClick={()=>handlePrintTag(item)} className="text-emerald-600 font-medium">Tag</button>}
                                       </div>
                                     </div>
                                   </div>

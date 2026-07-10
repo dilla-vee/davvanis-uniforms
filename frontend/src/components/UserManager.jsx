@@ -29,10 +29,12 @@ export default function UserManager() {
   // Form states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(null); // holds user object
+  const [showResetPinModal, setShowResetPinModal] = useState(null); // holds user object
   const [deleteConfirm, setDeleteConfirm] = useState(null); // holds user object
 
-  const [form, setForm] = useState({ name: '', username: '', password: '', role: 'attendant' });
+  const [form, setForm] = useState({ name: '', username: '', password: '', role: 'attendant', pin: '' });
   const [resetPassword, setResetPassword] = useState('');
+  const [resetPin, setResetPin] = useState('');
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -54,7 +56,7 @@ export default function UserManager() {
   }, []);
 
   const openAdd = () => {
-    setForm({ name: '', username: '', password: '', role: 'attendant' });
+    setForm({ name: '', username: '', password: '', role: 'attendant', pin: '' });
     setFormError('');
     setShowAddModal(true);
   };
@@ -62,8 +64,12 @@ export default function UserManager() {
   const handleAddSubmit = async e => {
     e.preventDefault();
     setFormError('');
-    if (!form.name.trim() || !form.username.trim() || !form.password.trim()) {
-      setFormError('All fields are required.');
+    if (!form.name.trim() || !form.username.trim() || !form.password.trim() || !form.pin.trim()) {
+      setFormError('All fields including a 4-digit PIN are required.');
+      return;
+    }
+    if (!/^\d{4}$/.test(form.pin.trim())) {
+      setFormError('PIN must be exactly 4 digits.');
       return;
     }
 
@@ -116,6 +122,38 @@ export default function UserManager() {
     }
   };
 
+  const openResetPin = user => {
+    setResetPin('');
+    setFormError('');
+    setShowResetPinModal(user);
+  };
+
+  const handleResetPinSubmit = async e => {
+    e.preventDefault();
+    setFormError('');
+    if (!resetPin.trim() || !/^\d{4}$/.test(resetPin.trim())) {
+      setFormError('PIN must be exactly 4 digits.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await apiFetch(`/api/users/${showResetPinModal.id}/pin`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: resetPin })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reset PIN');
+      await fetchUsers();
+      setShowResetPinModal(null);
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDelete = async () => {
     try {
       const res = await apiFetch(`/api/users/${deleteConfirm.id}`, { method: 'DELETE' });
@@ -152,7 +190,7 @@ export default function UserManager() {
               <table className="w-full text-sm">
                 <thead style={{ backgroundColor: 'var(--bg-muted)', borderBottom: '1px solid var(--border)' }}>
                   <tr>
-                    {['Name', 'Username', 'Role', 'Date Registered', 'Actions'].map(h => (
+                    {['Name', 'Username', 'Role', 'PIN Code', 'Date Registered', 'Actions'].map(h => (
                       <th key={h} className="text-left py-3 px-4 text-xs uppercase tracking-wide text-theme-secondary font-medium">{h}</th>
                     ))}
                   </tr>
@@ -167,9 +205,11 @@ export default function UserManager() {
                           {user.role}
                         </span>
                       </td>
+                      <td className="py-3 px-4 font-mono text-theme-primary font-bold">{user.pin || '—'}</td>
                       <td className="py-3 px-4 text-theme-secondary">{new Date(user.created_at).toLocaleDateString()}</td>
                       <td className="py-3 px-4">
-                        <button onClick={() => openReset(user)} className="text-xs font-medium mr-4 text-indigo-600 hover:underline">Reset Password</button>
+                        <button onClick={() => openReset(user)} className="text-xs font-medium mr-4 text-indigo-600 hover:underline">Reset Pass</button>
+                        <button onClick={() => openResetPin(user)} className="text-xs font-medium mr-4 text-indigo-600 hover:underline">Reset PIN</button>
                         <button onClick={() => setDeleteConfirm(user)} className="text-xs font-medium text-red-500 hover:underline">Delete</button>
                       </td>
                     </tr>
@@ -186,6 +226,7 @@ export default function UserManager() {
                     <div>
                       <p className="font-semibold text-theme-primary">{user.name}</p>
                       <p className="text-xs text-theme-secondary">@{user.username}</p>
+                      <p className="text-xs text-theme-secondary mt-1">PIN: <span className="font-mono font-semibold">{user.pin || '—'}</span></p>
                     </div>
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${user.role === 'admin' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400' : 'bg-slate-50 text-slate-700 dark:bg-slate-800/30 dark:text-slate-400'}`}>
                       {user.role}
@@ -193,8 +234,9 @@ export default function UserManager() {
                   </div>
                   <div className="flex items-center justify-between mt-3 pt-2 border-t border-dashed" style={{ borderColor: 'var(--border-light)' }}>
                     <span className="text-xs text-theme-muted">Registered: {new Date(user.created_at).toLocaleDateString()}</span>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
                       <button onClick={() => openReset(user)} className="text-xs font-medium text-indigo-600 hover:underline">Reset Pass</button>
+                      <button onClick={() => openResetPin(user)} className="text-xs font-medium text-indigo-600 hover:underline">Reset PIN</button>
                       <button onClick={() => setDeleteConfirm(user)} className="text-xs font-medium text-red-500 hover:underline">Delete</button>
                     </div>
                   </div>
@@ -224,6 +266,11 @@ export default function UserManager() {
             <div>
               <label className="label">Initial Password *</label>
               <input type="password" className="input" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" />
+            </div>
+
+            <div>
+              <label className="label">Unique 4-Digit PIN *</label>
+              <input className="input font-mono" maxLength="4" pattern="\d{4}" value={form.pin} onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '') }))} placeholder="e.g. 1234" />
             </div>
 
             <div>
@@ -262,6 +309,27 @@ export default function UserManager() {
                 {saving ? 'Resetting...' : 'Update Password'}
               </button>
               <button type="button" onClick={() => setShowResetModal(null)} className="btn-secondary">Cancel</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Reset PIN Modal */}
+      {showResetPinModal && (
+        <Modal title={`Reset PIN for ${showResetPinModal.name}`} onClose={() => setShowResetPinModal(null)}>
+          <form onSubmit={handleResetPinSubmit} className="space-y-4">
+            {formError && <p className="text-sm p-2 rounded" style={{ background: '#fee2e2', color: '#991b1b' }}>{formError}</p>}
+
+            <div>
+              <label className="label">New 4-Digit PIN *</label>
+              <input className="input font-mono" maxLength="4" pattern="\d{4}" value={resetPin} onChange={e => setResetPin(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 1234" />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button type="submit" disabled={saving} className="btn-primary flex-1">
+                {saving ? 'Updating...' : 'Update PIN'}
+              </button>
+              <button type="button" onClick={() => setShowResetPinModal(null)} className="btn-secondary">Cancel</button>
             </div>
           </form>
         </Modal>

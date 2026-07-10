@@ -12,6 +12,9 @@ const ordersRouter = require('./routes/orders');
 const stockRouter = require('./routes/stock');
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
+const debtsRouter = require('./routes/debts');
+const embroideryRouter = require('./routes/embroidery');
+const embroideryClientsRouter = require('./routes/embroidery_clients');
 const { authenticateToken } = require('./middleware/auth');
 
 const app = express();
@@ -39,6 +42,9 @@ app.use('/api/users', usersRouter);
 app.use('/api/clients', authenticateToken, restrictDeleteForAttendant, clientsRouter);
 app.use('/api/orders', authenticateToken, restrictDeleteForAttendant, ordersRouter);
 app.use('/api/stock', authenticateToken, restrictDeleteForAttendant, stockRouter);
+app.use('/api/debts', authenticateToken, restrictDeleteForAttendant, debtsRouter);
+app.use('/api/embroidery/logs', authenticateToken, restrictDeleteForAttendant, embroideryRouter);
+app.use('/api/embroidery-clients', authenticateToken, restrictDeleteForAttendant, embroideryClientsRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

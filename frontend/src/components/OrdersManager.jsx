@@ -45,7 +45,7 @@ export default function OrdersManager({ user }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [clients, setClients] = useState([]);
   const [stock, setStock] = useState([]);
-  const [addForm, setAddForm] = useState({ client_id:'', notes:'', items:[] });
+  const [addForm, setAddForm] = useState({ client_id:'', guest_name: '', guest_contact: '', isGuest: false, deposit_amount: '', collection_date: '', notes:'', items:[] });
   const [addError, setAddError] = useState('');
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -63,7 +63,7 @@ export default function OrdersManager({ user }) {
   };
 
   const openAdd = async () => {
-    setAddError(''); setAddForm({ client_id:'', notes:'', items:[] });
+    setAddError(''); setAddForm({ client_id:'', guest_name: '', guest_contact: '', isGuest: false, deposit_amount: '', collection_date: '', notes:'', items:[] });
     const [cR, sR] = await Promise.all([apiFetch('/api/clients'), apiFetch('/api/stock')]);
     setClients(await cR.json()); setStock(await sR.json()); setShowAddModal(true);
   };
@@ -80,14 +80,23 @@ export default function OrdersManager({ user }) {
 
   const handleAddSubmit = async e => {
     e.preventDefault();
-    if (!addForm.client_id) { setAddError('Please select a client'); return; }
+    if (!addForm.isGuest && !addForm.client_id) { setAddError('Please select a client'); return; }
+    if (addForm.isGuest && !addForm.guest_name.trim()) { setAddError('Please enter a guest name'); return; }
     if (!addForm.items.length) { setAddError('Add at least one item'); return; }
     for (const i of addForm.items) { if(!i.stock_id){setAddError('Each item needs a stock selection');return;} }
     setSaving(true);
     try {
       const r = await apiFetch('/api/orders', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ client_id:parseInt(addForm.client_id), notes:addForm.notes||null,
-          items: addForm.items.map(i=>({ stock_id:parseInt(i.stock_id), quantity:parseInt(i.quantity), unit_price:parseFloat(i.unit_price)||0, size:i.size||null })) }) });
+        body: JSON.stringify({ 
+          client_id: addForm.isGuest ? null : parseInt(addForm.client_id), 
+          guest_name: addForm.isGuest ? addForm.guest_name : null,
+          guest_contact: addForm.isGuest ? addForm.guest_contact : null,
+          deposit_amount: addForm.deposit_amount || 0,
+          collection_date: addForm.collection_date || null,
+          notes:addForm.notes||null,
+          items: addForm.items.map(i=>({ stock_id:parseInt(i.stock_id), quantity:parseInt(i.quantity), unit_price:parseFloat(i.unit_price)||0, size:i.size||null })) 
+        }) 
+      });
       if (!r.ok) { const d=await r.json(); throw new Error(d.error||'Failed'); }
       await fetchOrders(); setShowAddModal(false);
     } catch (e) { setAddError(e.message); } finally { setSaving(false); }
@@ -189,8 +198,9 @@ export default function OrdersManager({ user }) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 rounded-lg" style={{backgroundColor:'var(--bg-muted)'}}>
                   <p className="text-xs font-medium text-theme-secondary mb-1">Client</p>
-                  <p className="font-semibold text-theme-primary">{orderDetail.client_name||'—'}</p>
-                  <p className="text-sm text-theme-secondary">{orderDetail.client_school||'—'}</p>
+                  <p className="font-semibold text-theme-primary">{orderDetail.client_name || orderDetail.guest_name || '—'}</p>
+                  {orderDetail.client_school && <p className="text-sm text-theme-secondary">{orderDetail.client_school}</p>}
+                  {orderDetail.guest_contact && <p className="text-sm text-theme-secondary">{orderDetail.guest_contact}</p>}
                 </div>
                 <div className="p-3 rounded-lg" style={{backgroundColor:'var(--bg-muted)'}}>
                   <p className="text-xs font-medium text-theme-secondary mb-1">Order Date</p>
@@ -238,10 +248,20 @@ export default function OrdersManager({ user }) {
                   </table>
                 </div>
               </div>
-              <div className="flex justify-end">
-                <div className="px-5 py-3 rounded-lg" style={{backgroundColor:'rgba(99,102,241,0.1)'}}>
-                  <span className="text-sm text-theme-secondary">Total: </span>
-                  <span className="text-lg font-bold" style={{color:'#4f46e5'}}>{KSH}{(orderDetail.total_price||0).toFixed(2)}</span>
+              <div className="flex justify-end mt-4">
+                <div className="px-5 py-3 rounded-lg w-64 space-y-2" style={{backgroundColor:'rgba(99,102,241,0.05)', border:'1px solid rgba(99,102,241,0.1)'}}>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-theme-secondary">Total:</span>
+                    <span className="font-semibold text-theme-primary">{KSH}{(orderDetail.total_price||0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-theme-secondary">Deposit:</span>
+                    <span className="font-semibold text-emerald-600">{KSH}{(orderDetail.deposit_amount||0).toFixed(2)}</span>
+                  </div>
+                  <div className="pt-2 flex justify-between border-t" style={{borderColor:'var(--border)'}}>
+                    <span className="text-sm font-semibold text-theme-secondary">Balance:</span>
+                    <span className="font-bold text-red-600">{KSH}{(orderDetail.balance_amount||0).toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -253,12 +273,29 @@ export default function OrdersManager({ user }) {
         <Modal title="New Order" wide onClose={()=>setShowAddModal(false)}>
           <form onSubmit={handleAddSubmit} className="space-y-4">
             {addError && <p className="text-sm p-2 rounded" style={{background:'#fee2e2',color:'#991b1b'}}>{addError}</p>}
-            <div><label className="label">Client *</label>
-              <select className="input" value={addForm.client_id} onChange={e=>setAddForm(f=>({...f,client_id:e.target.value}))}>
-                <option value="">Select client...</option>
-                {clients.map(c=><option key={c.id} value={c.id}>{c.name} — {c.school}</option>)}
-              </select>
+            <div className="flex items-center gap-4 mb-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" checked={!addForm.isGuest} onChange={() => setAddForm(f => ({...f, isGuest: false, guest_name: '', guest_contact: ''}))} />
+                <span className="text-sm font-medium text-theme-primary">Existing Client</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" checked={addForm.isGuest} onChange={() => setAddForm(f => ({...f, isGuest: true, client_id: ''}))} />
+                <span className="text-sm font-medium text-theme-primary">Guest / Walk-in</span>
+              </label>
             </div>
+            {!addForm.isGuest ? (
+              <div><label className="label">Client *</label>
+                <select className="input" value={addForm.client_id} onChange={e=>setAddForm(f=>({...f,client_id:e.target.value}))}>
+                  <option value="">Select client...</option>
+                  {clients.map(c=><option key={c.id} value={c.id}>{c.name} — {c.school}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="label">Guest Name *</label><input className="input" placeholder="e.g. John Doe" value={addForm.guest_name} onChange={e=>setAddForm(f=>({...f,guest_name:e.target.value}))} /></div>
+                <div><label className="label">Contact</label><input className="input" placeholder="e.g. 0712345678" value={addForm.guest_contact} onChange={e=>setAddForm(f=>({...f,guest_contact:e.target.value}))} /></div>
+              </div>
+            )}
             <div><label className="label">Notes</label>
               <textarea className="input" rows={2} value={addForm.notes} onChange={e=>setAddForm(f=>({...f,notes:e.target.value}))} placeholder="Optional notes..." />
             </div>
@@ -293,9 +330,25 @@ export default function OrdersManager({ user }) {
               )}
             </div>
             {addForm.items.length>0 && (
-              <div className="flex justify-end px-4 py-2 rounded-lg" style={{backgroundColor:'rgba(99,102,241,0.1)'}}>
-                <span className="text-sm text-theme-secondary">Running Total: </span>
-                <span className="ml-2 font-bold" style={{color:'#4f46e5'}}>{KSH}{runningTotal.toFixed(2)}</span>
+              <div className="px-4 py-3 rounded-lg space-y-3" style={{backgroundColor:'rgba(99,102,241,0.05)', border:'1px solid rgba(99,102,241,0.1)'}}>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-theme-secondary">Running Total</span>
+                  <span className="font-bold" style={{color:'#4f46e5'}}>{KSH}{runningTotal.toFixed(2)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t" style={{borderColor:'var(--border)'}}>
+                  <div>
+                    <label className="text-xs font-semibold text-theme-secondary mb-1 block">Deposit Paid (Ksh)</label>
+                    <input type="number" min="0" max={runningTotal} className="input text-sm" placeholder="0" value={addForm.deposit_amount} onChange={e=>setAddForm(f=>({...f,deposit_amount:e.target.value}))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-theme-secondary mb-1 block">Collection Date</label>
+                    <input type="date" className="input text-sm" value={addForm.collection_date} onChange={e=>setAddForm(f=>({...f,collection_date:e.target.value}))} />
+                  </div>
+                </div>
+                <div className="flex justify-between items-center text-sm pt-1">
+                  <span className="text-theme-secondary">Balance Due</span>
+                  <span className="font-bold text-red-600">{KSH}{Math.max(0, runningTotal - (parseFloat(addForm.deposit_amount)||0)).toFixed(2)}</span>
+                </div>
               </div>
             )}
             <div className="flex gap-3 pt-1">

@@ -35,7 +35,7 @@ router.get('/low', async (req, res) => {
 router.get('/sales', async (req, res) => {
   try {
     const sales = await db.query_rows(
-      `SELECT ds.id, ds.sale_date::text AS sale_date, ds.notes, ds.total_value, ds.created_at,
+      `SELECT ds.id, ds.sale_date::text AS sale_date, ds.notes, ds.total_value, ds.created_at, ds.client_name, ds.payment_method, ds.sold_by,
          json_agg(json_build_object(
            'id',         dsi.id,
            'stock_id',   dsi.stock_id,
@@ -63,43 +63,66 @@ router.get('/sales', async (req, res) => {
 router.post('/sales', async (req, res) => {
   const client = await db.connect();
   try {
-    const { sale_date, notes, items } = req.body;
+    const { sale_date, notes, items, client_name, payment_method, pin } = req.body;
+    if (!pin) return res.status(400).json({ error: 'Staff PIN is required' });
+
+    // Validate PIN
+    const staff = await db.query_one('SELECT name, role FROM users WHERE pin = $1', [pin.trim()]);
+    if (!staff) return res.status(400).json({ error: 'Invalid staff PIN code' });
+
+    const soldBy = `${staff.name} (${staff.role})`;
+
     if (!Array.isArray(items) || items.length === 0)
       return res.status(400).json({ error: 'At least one item is required' });
 
     await client.query('BEGIN');
 
     for (const item of items) {
-      const row = await client.query(
-        'SELECT id, quantity, name FROM stock WHERE id = $1 FOR UPDATE', [item.stock_id]
-      );
-      if (!row.rows[0]) throw new Error(`Stock item ${item.stock_id} not found`);
-      const available = parseInt(row.rows[0].quantity);
-      const selling   = parseInt(item.qty_sold);
-      if (selling <= 0) throw new Error(`Qty must be > 0 for "${row.rows[0].name}"`);
-      if (selling > available) throw new Error(`Cannot sell ${selling} of "${row.rows[0].name}" — only ${available} in stock`);
+      if (item.stock_id) {
+        const row = await client.query(
+          'SELECT id, quantity, name FROM stock WHERE id = $1 FOR UPDATE', [item.stock_id]
+        );
+        if (!row.rows[0]) throw new Error(`Stock item ${item.stock_id} not found`);
+        const available = parseInt(row.rows[0].quantity);
+        const selling   = parseInt(item.qty_sold);
+        if (selling <= 0) throw new Error(`Qty must be > 0 for "${row.rows[0].name}"`);
+        if (selling > available) throw new Error(`Cannot sell ${selling} of "${row.rows[0].name}" — only ${available} in stock`);
+      } else {
+        const selling = parseInt(item.qty_sold);
+        if (selling <= 0) throw new Error(`Qty must be > 0 for custom item`);
+        if (!item.name) throw new Error('Custom item name is required');
+      }
     }
 
     const total_value = items.reduce((s, i) => s + (parseFloat(i.unit_price) || 0) * parseInt(i.qty_sold), 0);
 
     const saleRow = await client.query(
-      `INSERT INTO daily_sales (sale_date, notes, total_value) VALUES ($1,$2,$3) RETURNING *`,
-      [sale_date || new Date().toISOString().split('T')[0], notes || null, total_value]
+      `INSERT INTO daily_sales (sale_date, notes, total_value, client_name, payment_method, sold_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [sale_date || new Date().toISOString().split('T')[0], notes || null, total_value, client_name || null, payment_method || 'Cash', soldBy]
     );
     const saleId = saleRow.rows[0].id;
 
     for (const item of items) {
-      const stockRow = await client.query('SELECT * FROM stock WHERE id = $1', [item.stock_id]);
-      const s = stockRow.rows[0];
+      let sName = item.name;
+      let sSize = item.size || null;
+
+      if (item.stock_id) {
+        const stockRow = await client.query('SELECT * FROM stock WHERE id = $1', [item.stock_id]);
+        const s = stockRow.rows[0];
+        sName = s.name;
+        sSize = s.size;
+        
+        await client.query(
+          'UPDATE stock SET quantity = quantity - $1, updated_at = NOW() WHERE id = $2',
+          [parseInt(item.qty_sold), item.stock_id]
+        );
+      }
+
       const subtotal = (parseFloat(item.unit_price) || 0) * parseInt(item.qty_sold);
       await client.query(
         `INSERT INTO daily_sale_items (sale_id, stock_id, stock_name, stock_size, qty_sold, unit_price, subtotal)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [saleId, item.stock_id, s.name, s.size, parseInt(item.qty_sold), parseFloat(item.unit_price) || 0, subtotal]
-      );
-      await client.query(
-        'UPDATE stock SET quantity = quantity - $1, updated_at = NOW() WHERE id = $2',
-        [parseInt(item.qty_sold), item.stock_id]
+        [saleId, item.stock_id || null, sName, sSize, parseInt(item.qty_sold), parseFloat(item.unit_price) || 0, subtotal]
       );
     }
 
