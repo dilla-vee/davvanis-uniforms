@@ -1,27 +1,27 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../utils/api';
 
+// Print using a hidden iframe — works inside Capacitor Android WebView
 function printWithIframe(htmlContent) {
   const old = document.getElementById('__print_quotation_frame__');
   if (old) old.remove();
 
   const frame = document.createElement('iframe');
   frame.id = '__print_quotation_frame__';
-  frame.style.position = 'fixed';
-  frame.style.right = '0';
-  frame.style.bottom = '0';
-  frame.style.width = '0';
-  frame.style.height = '0';
-  frame.style.border = '0';
+  frame.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-999;opacity:0;pointer-events:none;';
   document.body.appendChild(frame);
 
-  frame.contentDocument.write(htmlContent);
-  frame.contentDocument.close();
+  const doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open();
+  doc.write(htmlContent);
+  doc.close();
 
   frame.onload = () => {
     setTimeout(() => {
+      frame.contentWindow.focus();
       frame.contentWindow.print();
-    }, 200);
+      setTimeout(() => frame.remove(), 2000);
+    }, 300);
   };
 }
 
