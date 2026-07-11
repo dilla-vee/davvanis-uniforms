@@ -25,7 +25,7 @@ function printWithIframe(htmlContent) {
   };
 }
 
-const generateQuotationHtml = ({ clientName, clientDetails, date, items, total, notes }) => `
+const generateQuotationHtml = ({ clientName, clientDetails, date, items, total, notes, collectionDate }) => `
 <!DOCTYPE html>
 <html>
   <head>
@@ -86,6 +86,7 @@ const generateQuotationHtml = ({ clientName, clientDetails, date, items, total, 
       <div class="details-box" style="text-align: right;">
         <div class="details-label">Issued By:</div>
         <div class="details-value">Davvanis Uniforms</div>
+        <div class="details-sub">Shop J-100 / J-101 &amp; Block C SHOP 6</div>
         <div class="details-sub">Nairobi, Kenya</div>
       </div>
     </div>
@@ -115,6 +116,11 @@ const generateQuotationHtml = ({ clientName, clientDetails, date, items, total, 
     
     <div class="totals-section">
       <table class="totals-table">
+        ${collectionDate ? `
+        <tr>
+          <td>Collection Date:</td>
+          <td class="text-right" style="color: #4f46e5; font-weight: 600;">${new Date(collectionDate).toLocaleDateString()}</td>
+        </tr>` : ''}
         <tr class="grand-total">
           <td>Grand Total:</td>
           <td class="text-right">Ksh ${total.toFixed(2)}</td>
@@ -219,7 +225,8 @@ export default function OrdersManager({ user }) {
       date: new Date().toLocaleDateString(),
       items,
       total,
-      notes: addForm.notes
+      notes: addForm.notes,
+      collectionDate: addForm.collection_date
     });
 
     printWithIframe(html);
@@ -247,7 +254,8 @@ export default function OrdersManager({ user }) {
       date: new Date(orderDetail.order_date).toLocaleDateString(),
       items,
       total,
-      notes: orderDetail.notes
+      notes: orderDetail.notes,
+      collectionDate: orderDetail.collection_date
     });
 
     printWithIframe(html);
@@ -260,6 +268,7 @@ export default function OrdersManager({ user }) {
     let items = [];
     let total = 0;
     let notes = '';
+    let collectionDate = '';
 
     if (isNew) {
       if (!addForm.isGuest) {
@@ -286,6 +295,7 @@ export default function OrdersManager({ user }) {
       });
       total = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
       notes = addForm.notes;
+      collectionDate = addForm.collection_date;
     } else {
       if (!orderDetail) return;
       clientName = orderDetail.client_name || orderDetail.guest_name || 'Walk-in Guest';
@@ -302,13 +312,16 @@ export default function OrdersManager({ user }) {
       }));
       total = orderDetail.total_price || items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
       notes = orderDetail.notes;
+      collectionDate = orderDetail.collection_date;
     }
 
     let text = `*DAVVANIS UNIFORMS - PRICE QUOTATION*\n`;
     text += `----------------------------------\n`;
     text += `*Date:* ${new Date().toLocaleDateString()}\n`;
+    if (collectionDate) text += `*Collection Date:* ${new Date(collectionDate).toLocaleDateString()}\n`;
     text += `*Client:* ${clientName}\n`;
     if (clientDetails) text += `*Details:* ${clientDetails}\n`;
+    text += `*Shop:* Shop J-100 / J-101 & Block C SHOP 6\n`;
     text += `----------------------------------\n\n`;
     
     text += `*Items:*\n`;
