@@ -29,69 +29,115 @@ const generateQuotationHtml = ({ clientName, clientDetails, date, items, total, 
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Quotation / Order Receipt</title>
+    <title>Quotation - Davvanis Uniforms</title>
     <style>
-      * { margin:0; padding:0; box-sizing:border-box; }
-      body { font-family: 'Courier New', Courier, monospace; font-size: 13px; color: #000; padding: 12px; max-width: 320px; }
-      .center { text-align: center; }
-      .bold { font-weight: bold; }
-      .lg { font-size: 15px; }
-      .sm { font-size: 11px; }
-      hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
-      table { width: 100%; border-collapse: collapse; }
-      td { padding: 3px 2px; vertical-align: top; }
-      .r { text-align: right; }
-      .total-row td { font-size: 15px; font-weight: bold; padding-top: 6px; }
-      .footer { text-align: center; margin-top: 16px; font-size: 11px; }
-      @media print { body { padding: 4px; } }
+      body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 0; padding: 40px; font-size: 14px; line-height: 1.5; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 2px solid #4f46e5; padding-bottom: 20px; }
+      .brand-title { font-size: 28px; font-weight: bold; color: #4f46e5; letter-spacing: -0.5px; }
+      .brand-subtitle { font-size: 12px; color: #6b7280; text-transform: uppercase; margin-top: 4px; }
+      .meta-info { text-align: right; }
+      .meta-title { font-size: 22px; font-weight: bold; color: #111827; }
+      .meta-date { margin-top: 6px; color: #4b5563; }
+      
+      .details-grid { display: flex; justify-content: space-between; gap: 40px; margin-bottom: 40px; }
+      .details-box { flex: 1; background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; }
+      .details-label { font-size: 11px; font-weight: bold; color: #6b7280; text-transform: uppercase; margin-bottom: 8px; }
+      .details-value { font-size: 15px; font-weight: 600; color: #1f2937; }
+      .details-sub { font-size: 13px; color: #4b5563; margin-top: 2px; }
+      
+      table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+      th { background: #f3f4f6; color: #374151; font-weight: bold; text-align: left; padding: 12px 16px; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #e5e7eb; }
+      td { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #4b5563; }
+      .text-right { text-align: right; }
+      
+      .totals-section { display: flex; justify-content: flex-end; margin-bottom: 40px; }
+      .totals-table { width: 300px; margin-bottom: 0; }
+      .totals-table td { border: none; padding: 8px 16px; }
+      .totals-table tr.grand-total td { font-size: 18px; font-weight: bold; color: #4f46e5; border-top: 2px solid #4f46e5; padding-top: 12px; }
+      
+      .notes-box { background: #f3f4f6; padding: 16px; border-radius: 8px; border-left: 4px solid #9ca3af; font-size: 13px; color: #4b5563; }
+      .footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 60px; border-top: 1px solid #e5e7eb; padding-top: 20px; }
+      
+      @media print {
+        body { padding: 20px; }
+        .details-box { background: #fff !important; border: 1px solid #ddd !important; }
+        th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      }
     </style>
   </head>
   <body>
-    <div class="center bold lg">DAVVANIS UNIFORMS</div>
-    <div class="center sm">Workshop &amp; Retail Shop</div>
-    <div class="center sm">Shop J-100 / J-101 &amp; Block C SHOP 6</div>
-    <div class="center sm">Tel: 0710 289 290 / 0711 404 753</div>
-    <hr/>
-    <div class="center bold">PRICE QUOTATION / ORDER</div>
-    <hr/>
-    <div>Date: ${date}</div>
-    ${collectionDate ? `<div>Collect: <b>${new Date(collectionDate).toLocaleDateString()}</b></div>` : ''}
-    <div>Client: <b>${clientName}</b></div>
-    ${clientDetails ? `<div>${clientDetails}</div>` : ''}
-    <hr/>
+    <div class="header">
+      <div>
+        <div class="brand-title">DAVVANIS UNIFORMS</div>
+        <div class="brand-subtitle">High Quality School &amp; Corporate Wear</div>
+      </div>
+      <div class="meta-info">
+        <div class="meta-title">PRICE QUOTATION</div>
+        <div class="meta-date">Date: ${date}</div>
+      </div>
+    </div>
+    
+    <div class="details-grid">
+      <div class="details-box">
+        <div class="details-label">Quotation Prepared For:</div>
+        <div class="details-value">${clientName}</div>
+        ${clientDetails ? `<div class="details-sub">${clientDetails}</div>` : ''}
+      </div>
+      <div class="details-box" style="text-align: right;">
+        <div class="details-label">Issued By:</div>
+        <div class="details-value">Davvanis Uniforms</div>
+        <div class="details-sub">Shop J-100 / J-101 &amp; Block C SHOP 6</div>
+        <div class="details-sub">Nairobi, Kenya</div>
+      </div>
+    </div>
+    
     <table>
       <thead>
-        <tr class="bold">
-          <td style="width:52%">Item</td>
-          <td style="width:12%" class="r">Qty</td>
-          <td style="width:36%" class="r">Amount</td>
+        <tr>
+          <th>Description</th>
+          <th>Size</th>
+          <th class="text-right">Qty</th>
+          <th class="text-right">Unit Price (Ksh)</th>
+          <th class="text-right">Total (Ksh)</th>
         </tr>
       </thead>
       <tbody>
         ${items.map(item => `
           <tr>
-            <td>${item.name}${item.size ? ' (' + item.size + ')' : ''}</td>
-            <td class="r">${item.quantity}</td>
-            <td class="r">${(item.quantity * item.unit_price).toFixed(2)}</td>
+            <td style="font-weight: 500; color: #1f2937;">${item.name}</td>
+            <td>${item.size}</td>
+            <td class="text-right">${item.quantity}</td>
+            <td class="text-right">${item.unit_price.toFixed(2)}</td>
+            <td class="text-right" style="font-weight: 600; color: #1f2937;">${(item.quantity * item.unit_price).toFixed(2)}</td>
           </tr>
         `).join('')}
       </tbody>
-      <tbody>
-        <tr><td colspan="3"><hr style="margin:4px 0"/></td></tr>
-        <tr class="total-row">
-          <td colspan="2">TOTAL</td>
-          <td class="r">Ksh ${total.toFixed(2)}</td>
-        </tr>
-      </tbody>
     </table>
+    
+    <div class="totals-section">
+      <table class="totals-table">
+        ${collectionDate ? `
+        <tr>
+          <td>Collection Date:</td>
+          <td class="text-right" style="color: #4f46e5; font-weight: 600;">${new Date(collectionDate).toLocaleDateString()}</td>
+        </tr>` : ''}
+        <tr class="grand-total">
+          <td>Grand Total:</td>
+          <td class="text-right">Ksh ${total.toFixed(2)}</td>
+        </tr>
+      </table>
+    </div>
+    
     ${notes ? `
-      <hr/>
-      <div class="sm"><b>Notes:</b><br/>${notes}</div>
+      <div class="notes-box">
+        <div style="font-weight: bold; margin-bottom: 4px; color: #1f2937;">Notes &amp; Terms:</div>
+        <div>${notes}</div>
+      </div>
     ` : ''}
-    <hr/>
+    
     <div class="footer">
-      Thank you for choosing Davvanis Uniforms!<br/>
-      Goods once sold cannot be returned.
+      <p>Thank you for choosing Davvanis Uniforms!</p>
+      <p style="margin-top: 4px; font-size: 10px;">This is a computer-generated quotation and does not require a physical signature.</p>
     </div>
   </body>
 </html>

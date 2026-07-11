@@ -147,7 +147,7 @@ router.get('/analytics/sales-summary', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const order = await db.query_one(
-      `SELECT o.*, c.name AS client_name, c.school AS client_school
+      `SELECT o.*, c.name AS client_name, c.school AS client_school, c.contact AS client_contact
        FROM orders o
        LEFT JOIN clients c ON o.client_id = c.id
        WHERE o.id = $1`,
