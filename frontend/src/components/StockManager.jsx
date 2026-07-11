@@ -500,20 +500,20 @@ function DailySalesModal({ stock, onClose, onSaved }) {
               .center { text-align: center; }
               .bold { font-weight: bold; }
               .italic { font-style: italic; }
-              .title { font-size: 24px; font-weight: 800; color: #166534; margin-bottom: 2px; }
-              .subtitle { font-size: 11px; color: #166534; font-weight: bold; margin-bottom: 8px; }
-              .header-table { width: 100%; font-size: 12px; margin-bottom: 10px; color: #166534; }
+              .title { font-size: 24px; font-weight: 800; color: #000000; margin-bottom: 2px; }
+              .subtitle { font-size: 11px; color: #000000; font-weight: bold; margin-bottom: 8px; }
+              .header-table { width: 100%; font-size: 12px; margin-bottom: 10px; color: #000000; }
               .header-table td { vertical-align: top; }
-              .cash-sale { background-color: #166534; color: white; padding: 2px 10px; font-weight: bold; display: inline-block; font-size: 13px; }
+              .cash-sale { background-color: #000000; color: white; padding: 2px 10px; font-weight: bold; display: inline-block; font-size: 13px; }
               table { width: 100%; border-collapse: collapse; margin-top: 10px; }
               th, td { padding: 4px 6px; }
-              .items-table th { border-top: 2px solid #166534; border-bottom: 2px solid #166534; color: #166534; text-align: left; }
-              .items-table td { border-bottom: 1px solid #166534; border-left: 1px solid #166534; border-right: 1px solid #166534; }
+              .items-table th { border-top: 2px solid #000000; border-bottom: 2px solid #000000; color: #000000; text-align: left; }
+              .items-table td { border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000; }
               .items-table th:first-child, .items-table td:first-child { border-left: none; }
               .items-table th:last-child, .items-table td:last-child { border-right: none; }
               .right { text-align: right; }
-              .total-row td { border-bottom: 2px solid #166534 !important; font-weight: bold; color: #166534; }
-              .footer { text-align: center; margin-top: 20px; font-style: italic; color: #166534; font-weight: bold; font-size: 16px; }
+              .total-row td { border-bottom: 2px solid #000000 !important; font-weight: bold; color: #000000; }
+              .footer { text-align: center; margin-top: 20px; font-style: italic; color: #000000; font-weight: bold; font-size: 16px; }
             </style>
           </head>
           <body>
@@ -529,18 +529,18 @@ function DailySalesModal({ stock, onClose, onSaved }) {
             
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
               <div style="width: 65%; display: flex;">
-                <span style="color: #166534; font-weight: bold;">M/S</span>
+                <span style="color: #000000; font-weight: bold;">M/S</span>
                 <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${client}</span>
               </div>
               <div style="width: 30%; display: flex;">
-                <span style="color: #166534; font-weight: bold;">Date:</span>
+                <span style="color: #000000; font-weight: bold;">Date:</span>
                 <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${saleDate}</span>
               </div>
             </div>
  
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
               <div style="width: 100%; display: flex;">
-                <span style="color: #166534; font-weight: bold;">Served By:</span>
+                <span style="color: #000000; font-weight: bold;">Served By:</span>
                 <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${formatServedBy(success?.sale?.sold_by || 'Staff')}</span>
               </div>
             </div>
@@ -568,8 +568,8 @@ function DailySalesModal({ stock, onClose, onSaved }) {
                 `).join('')}
                 <tr class="total-row">
                   <td colspan="2" style="border: none !important;">
-                    <span style="color: #166534; font-weight: bold;">E.&.O.E No.</span>
-                    <span style="color: #dc2626; font-size: 18px; margin-left: 5px;">${saleId}</span>
+                    <span style="color: #000000; font-weight: bold;">E.&.O.E No.</span>
+                    <span style="color: #000000; font-size: 18px; margin-left: 5px;">${saleId}</span>
                   </td>
                   <td class="right">TOTAL</td>
                   <td class="right">${totalVal.toFixed(2)}</td>
@@ -602,7 +602,7 @@ function DailySalesModal({ stock, onClose, onSaved }) {
         {/* Receipt Mockup Preview */}
         <div className="border border-zinc-200 dark:border-zinc-800 p-4 rounded-lg bg-zinc-50 dark:bg-zinc-950 font-mono text-xs text-theme-primary space-y-3 shadow-inner">
           <div className="text-center space-y-0.5">
-            <h4 className="font-bold text-sm tracking-wide" style={{ color: '#166534' }}>DAVANIS UNIFORMS</h4>
+            <h4 className="font-bold text-sm tracking-wide" style={{ color: '#000000' }}>DAVANIS UNIFORMS</h4>
             <p className="text-[10px] text-theme-muted">School Uniforms / Corporate Wear / Embroidery & Branding</p>
             <p className="text-[10px] text-theme-muted">Uhuru Market, Shop J-100, J-101 & Shop 6 Block C</p>
           </div>
@@ -610,7 +610,7 @@ function DailySalesModal({ stock, onClose, onSaved }) {
             {success.sale.client_name && <div className="flex justify-between"><span>M/S:</span><span className="font-bold">{success.sale.client_name}</span></div>}
             <div className="flex justify-between"><span>Receipt No:</span><span className="font-bold text-red-600">#{saleId}</span></div>
             <div className="flex justify-between"><span>Date:</span><span>{saleDate}</span></div>
-            <div className="flex justify-between"><span>Payment:</span><span className="font-bold" style={{ color: '#166534' }}>{success.sale.payment_method || paymentMethod}</span></div>
+            <div className="flex justify-between"><span>Payment:</span><span className="font-bold" style={{ color: '#000000' }}>{success.sale.payment_method || paymentMethod}</span></div>
             <div className="flex justify-between"><span>Served By:</span><span className="font-bold">{formatServedBy(success.sale.sold_by || 'Staff')}</span></div>
           </div>
           <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 my-2"></div>
@@ -622,7 +622,7 @@ function DailySalesModal({ stock, onClose, onSaved }) {
               </div>
             ))}
           </div>
-          <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 pt-2 flex justify-between font-bold text-sm" style={{ color: '#166534' }}>
+          <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 pt-2 flex justify-between font-bold text-sm" style={{ color: '#000000' }}>
             <span>TOTAL</span>
             <span>{KSH}{totalVal.toFixed(2)}</span>
           </div>
@@ -830,20 +830,20 @@ function SalesHistoryModal({ onClose }) {
             .center { text-align: center; }
             .bold { font-weight: bold; }
             .italic { font-style: italic; }
-            .title { font-size: 24px; font-weight: 800; color: #166534; margin-bottom: 2px; }
-            .subtitle { font-size: 11px; color: #166534; font-weight: bold; margin-bottom: 8px; }
-            .header-table { width: 100%; font-size: 12px; margin-bottom: 10px; color: #166534; }
+            .title { font-size: 24px; font-weight: 800; color: #000000; margin-bottom: 2px; }
+            .subtitle { font-size: 11px; color: #000000; font-weight: bold; margin-bottom: 8px; }
+            .header-table { width: 100%; font-size: 12px; margin-bottom: 10px; color: #000000; }
             .header-table td { vertical-align: top; }
-            .cash-sale { background-color: #166534; color: white; padding: 2px 10px; font-weight: bold; display: inline-block; font-size: 13px; }
+            .cash-sale { background-color: #000000; color: white; padding: 2px 10px; font-weight: bold; display: inline-block; font-size: 13px; }
             table { width: 100%; border-collapse: collapse; margin-top: 10px; }
             th, td { padding: 4px 6px; }
-            .items-table th { border-top: 2px solid #166534; border-bottom: 2px solid #166534; color: #166534; text-align: left; }
-            .items-table td { border-bottom: 1px solid #166534; border-left: 1px solid #166534; border-right: 1px solid #166534; }
+            .items-table th { border-top: 2px solid #000000; border-bottom: 2px solid #000000; color: #000000; text-align: left; }
+            .items-table td { border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000; }
             .items-table th:first-child, .items-table td:first-child { border-left: none; }
             .items-table th:last-child, .items-table td:last-child { border-right: none; }
             .right { text-align: right; }
-            .total-row td { border-bottom: 2px solid #166534 !important; font-weight: bold; color: #166534; }
-            .footer { text-align: center; margin-top: 20px; font-style: italic; color: #166534; font-weight: bold; font-size: 16px; }
+            .total-row td { border-bottom: 2px solid #000000 !important; font-weight: bold; color: #000000; }
+            .footer { text-align: center; margin-top: 20px; font-style: italic; color: #000000; font-weight: bold; font-size: 16px; }
           </style>
         </head>
         <body>
@@ -859,18 +859,18 @@ function SalesHistoryModal({ onClose }) {
           
           <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
             <div style="width: 65%; display: flex;">
-              <span style="color: #166534; font-weight: bold;">M/S</span>
+              <span style="color: #000000; font-weight: bold;">M/S</span>
               <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${clientName}</span>
             </div>
             <div style="width: 30%; display: flex;">
-              <span style="color: #166534; font-weight: bold;">Date:</span>
+              <span style="color: #000000; font-weight: bold;">Date:</span>
               <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${saleDate}</span>
             </div>
           </div>
 
           <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
             <div style="width: 100%; display: flex;">
-              <span style="color: #166534; font-weight: bold;">Served By:</span>
+              <span style="color: #000000; font-weight: bold;">Served By:</span>
               <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${formatServedBy(sale.sold_by || 'Staff')}</span>
             </div>
           </div>
@@ -898,8 +898,8 @@ function SalesHistoryModal({ onClose }) {
               `).join('')}
               <tr class="total-row">
                 <td colspan="2" style="border: none !important;">
-                  <span style="color: #166534; font-weight: bold;">E.&.O.E No.</span>
-                  <span style="color: #dc2626; font-size: 18px; margin-left: 5px;">${saleId}</span>
+                  <span style="color: #000000; font-weight: bold;">E.&.O.E No.</span>
+                  <span style="color: #000000; font-size: 18px; margin-left: 5px;">${saleId}</span>
                 </td>
                 <td class="right">TOTAL</td>
                 <td class="right">${totalVal.toFixed(2)}</td>
