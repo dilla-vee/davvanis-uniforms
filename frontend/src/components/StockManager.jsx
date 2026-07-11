@@ -1163,8 +1163,8 @@ export default function StockManager({ user }) {
 
           if (existing) {
             // Update existing item
-            const qtyToAdd = (form.sizeQuantities && form.sizeQuantities[sz] !== undefined && form.sizeQuantities[sz] !== '') ? parseInt(form.sizeQuantities[sz]) : (form.quantity !== '' ? parseInt(form.quantity) : 0);
-            const workshopQtyToAdd = (form.sizeWorkshopQuantities && form.sizeWorkshopQuantities[sz] !== undefined && form.sizeWorkshopQuantities[sz] !== '') ? parseInt(form.sizeWorkshopQuantities[sz]) : (form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0);
+            const qtyToAdd = (!editItem && form.selectedSizes.length > 0) ? (form.sizeQuantities && form.sizeQuantities[sz] !== undefined && form.sizeQuantities[sz] !== '' ? parseInt(form.sizeQuantities[sz]) : 0) : (form.quantity !== '' ? parseInt(form.quantity) : 0);
+            const workshopQtyToAdd = (!editItem && form.selectedSizes.length > 0) ? (form.sizeWorkshopQuantities && form.sizeWorkshopQuantities[sz] !== undefined && form.sizeWorkshopQuantities[sz] !== '' ? parseInt(form.sizeWorkshopQuantities[sz]) : 0) : (form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0);
             const embroideryQtyToAdd = form.embroidery_quantity !== '' ? parseInt(form.embroidery_quantity) : 0;
             
             const r = await apiFetch(`/api/stock/${existing.id}`, {
@@ -1182,8 +1182,8 @@ export default function StockManager({ user }) {
             if (!r.ok) { const d = await r.json(); throw new Error(d.error || `Failed to update existing item for size ${sz}`); }
           } else {
             // Create new item
-            const qtyToAdd = (form.sizeQuantities && form.sizeQuantities[sz] !== undefined && form.sizeQuantities[sz] !== '') ? parseInt(form.sizeQuantities[sz]) : (form.quantity !== '' ? parseInt(form.quantity) : 0);
-            const workshopQtyToAdd = (form.sizeWorkshopQuantities && form.sizeWorkshopQuantities[sz] !== undefined && form.sizeWorkshopQuantities[sz] !== '') ? parseInt(form.sizeWorkshopQuantities[sz]) : (form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0);
+            const qtyToAdd = (!editItem && form.selectedSizes.length > 0) ? (form.sizeQuantities && form.sizeQuantities[sz] !== undefined && form.sizeQuantities[sz] !== '' ? parseInt(form.sizeQuantities[sz]) : 0) : (form.quantity !== '' ? parseInt(form.quantity) : 0);
+            const workshopQtyToAdd = (!editItem && form.selectedSizes.length > 0) ? (form.sizeWorkshopQuantities && form.sizeWorkshopQuantities[sz] !== undefined && form.sizeWorkshopQuantities[sz] !== '' ? parseInt(form.sizeWorkshopQuantities[sz]) : 0) : (form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0);
             const embroideryQtyToAdd = form.embroidery_quantity !== '' ? parseInt(form.embroidery_quantity) : 0;
 
             const r = await apiFetch('/api/stock', {
@@ -1362,7 +1362,7 @@ export default function StockManager({ user }) {
           {isWorkshop && (
             <button onClick={() => { setProdSearch(''); setSelectedProdStyle(null); setProdQuantities({}); setFormError(''); setShowProductionModal(true); }} className="btn-secondary text-sm">🧶 Log Production</button>
           )}
-          {(user?.role === 'admin' || user?.role === 'workshop') && (
+          {(user?.role === 'admin' || user?.role === 'workshop' || user?.role === 'attendant') && (
             <button onClick={openAdd} className="btn-primary text-sm">+ Add Stock</button>
           )}
         </div>
@@ -2184,14 +2184,14 @@ export default function StockManager({ user }) {
             
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">Shop Quantity</label>
+                <label className="label">Shop Quantity {!editItem && form.selectedSizes?.length > 0 && <span className="text-[9px] font-bold text-indigo-500">(Auto-Summed)</span>}</label>
                 <input 
                   type="number" 
                   min="0" 
                   className="input" 
-                  value={form.quantity} 
+                  value={!editItem && form.selectedSizes?.length > 0 ? form.selectedSizes.reduce((sum, sz) => sum + (form.sizeQuantities?.[sz] ? parseInt(form.sizeQuantities[sz]) : 0), 0) : form.quantity} 
                   onChange={e=>setForm(f=>({...f,quantity:e.target.value}))} 
-                  disabled={user?.role === 'workshop' || (form.source_type === 'manufactured' && editItem && !overrideShopQty)} 
+                  disabled={user?.role === 'workshop' || (form.source_type === 'manufactured' && editItem && !overrideShopQty) || (!editItem && form.selectedSizes?.length > 0)} 
                 />
                 {form.source_type === 'manufactured' && editItem && (
                   <div className="mt-1 flex flex-col gap-1">
@@ -2210,8 +2210,8 @@ export default function StockManager({ user }) {
                 )}
               </div>
               <div>
-                <label className="label">Workshop Quantity</label>
-                <input type="number" min="0" className="input" value={form.workshop_quantity} onChange={e=>setForm(f=>({...f,workshop_quantity:e.target.value}))} disabled={form.source_type === 'purchased'} />
+                <label className="label">Workshop Quantity {!editItem && form.selectedSizes?.length > 0 && <span className="text-[9px] font-bold text-indigo-500">(Auto-Summed)</span>}</label>
+                <input type="number" min="0" className="input" value={!editItem && form.selectedSizes?.length > 0 ? form.selectedSizes.reduce((sum, sz) => sum + (form.sizeWorkshopQuantities?.[sz] ? parseInt(form.sizeWorkshopQuantities[sz]) : 0), 0) : form.workshop_quantity} onChange={e=>setForm(f=>({...f,workshop_quantity:e.target.value}))} disabled={form.source_type === 'purchased' || (!editItem && form.selectedSizes?.length > 0)} />
               </div>
             </div>
 
