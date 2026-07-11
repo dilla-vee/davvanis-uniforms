@@ -1057,61 +1057,147 @@ export default function StockManager({ user }) {
   useEffect(() => { fetchStock(); }, []);
   useEffect(() => { if ((editingQty || editingWorkshopQty || editingEmbroideryQty) && qtyRef.current) qtyRef.current.focus(); }, [editingQty, editingWorkshopQty, editingEmbroideryQty]);
 
-  const openAdd = () => { setEditItem(null); setForm({ name:'', category:'', size:'', quantity:user?.role === 'workshop' || user?.role === 'embroidery' ? '0' : '', price:'', low_stock_threshold:'10', barcode:'', workshop_quantity:'0', embroidery_quantity:'0', source_type:user?.role === 'workshop' ? 'manufactured' : 'purchased' }); setFormError(''); setShowModal(true); };
-  const openEdit = item => { setEditItem(item); setForm({ name:item.name||'', category:item.category||'', size:item.size||'', quantity:item.quantity!=null?String(item.quantity):'', price:item.price!=null?String(item.price):'', low_stock_threshold:item.low_stock_threshold!=null?String(item.low_stock_threshold):'10', barcode:item.barcode||'', workshop_quantity:item.workshop_quantity!=null?String(item.workshop_quantity):'0', embroidery_quantity:item.embroidery_quantity!=null?String(item.embroidery_quantity):'0', source_type:item.source_type||'purchased' }); setFormError(''); setShowModal(true); };
+  const openAdd = () => { 
+    setEditItem(null); 
+    setForm({ 
+      name:'', 
+      category:'', 
+      custom_category:'', 
+      size:'', 
+      selectedSizes: [], 
+      quantity: user?.role === 'workshop' || user?.role === 'embroidery' ? '0' : '', 
+      price:'', 
+      low_stock_threshold:'10', 
+      barcode:'', 
+      workshop_quantity:'0', 
+      embroidery_quantity:'0', 
+      source_type: user?.role === 'workshop' ? 'manufactured' : 'purchased' 
+    }); 
+    setFormError(''); 
+    setShowModal(true); 
+  };
+  
+  const openEdit = item => { 
+    setEditItem(item); 
+    setForm({ 
+      name:item.name||'', 
+      category:item.category||'', 
+      custom_category: '', 
+      size:item.size||'', 
+      selectedSizes: [item.size||''], 
+      quantity:item.quantity!=null?String(item.quantity):'', 
+      price:item.price!=null?String(item.price):'', 
+      low_stock_threshold:item.low_stock_threshold!=null?String(item.low_stock_threshold):'10', 
+      barcode:item.barcode||'', 
+      workshop_quantity:item.workshop_quantity!=null?String(item.workshop_quantity):'0', 
+      embroidery_quantity:item.embroidery_quantity!=null?String(item.embroidery_quantity):'0', 
+      source_type:item.source_type||'purchased' 
+    }); 
+    setFormError(''); 
+    setShowModal(true); 
+  };
 
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.name.trim()) { setFormError('Name is required'); return; }
+    
+    // Resolve final category name
+    const finalCategory = form.category === 'Other' 
+      ? (form.custom_category.trim() || 'Other')
+      : form.category;
+      
+    if (!finalCategory) { setFormError('Category is required'); return; }
+
     setSaving(true);
+    setFormError('');
     try {
-      if (!editItem && (form.category === 'Sweaters' || form.category === 'Tracksuits')) {
-        const existing = stock.find(s => 
-          s.category === form.category && 
-          s.name.toLowerCase() === form.name.toLowerCase() && 
-          String(s.size) === String(form.size)
-        );
-        if (existing) {
-          const qtyToAdd = form.quantity !== '' ? parseInt(form.quantity) : 0;
-          const workshopQtyToAdd = form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0;
-          const embroideryQtyToAdd = form.embroidery_quantity !== '' ? parseInt(form.embroidery_quantity) : 0;
-          const newQty = (existing.quantity || 0) + qtyToAdd;
-          const newWorkshopQty = (existing.workshop_quantity || 0) + workshopQtyToAdd;
-          const newEmbroideryQty = (existing.embroidery_quantity || 0) + embroideryQtyToAdd;
-          
-          const r = await apiFetch(`/api/stock/${existing.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              quantity: newQty,
-              workshop_quantity: newWorkshopQty,
-              embroidery_quantity: newEmbroideryQty,
-              price: form.price !== '' ? parseFloat(form.price) : existing.price
-            })
-          });
-          if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to update existing item'); }
-          await fetchStock();
-          setShowModal(false);
-          return;
+      if (editItem) {
+        // Edit single item
+        const r = await apiFetch(`/api/stock/${editItem.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            category: finalCategory,
+            size: form.size.trim() || null,
+            quantity: form.quantity !== '' ? parseInt(form.quantity) : 0,
+            workshop_quantity: form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0,
+            embroidery_quantity: form.embroidery_quantity !== '' ? parseInt(form.embroidery_quantity) : 0,
+            price: form.price !== '' ? parseFloat(form.price) : null,
+            low_stock_threshold: form.low_stock_threshold !== '' ? parseInt(form.low_stock_threshold) : 10,
+            barcode: form.barcode.trim() || null,
+            source_type: form.source_type
+          })
+        });
+        if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to update item'); }
+      } else {
+        // Resolve list of sizes to add
+        let sizesToAdd = [...form.selectedSizes];
+        if (sizesToAdd.length === 0) {
+          if (form.size.trim()) {
+            sizesToAdd.push(form.size.trim());
+          } else {
+            setFormError('Please select or type at least one size');
+            setSaving(false);
+            return;
+          }
+        }
+
+        for (const sz of sizesToAdd) {
+          // Check if item already exists in local stock state
+          const existing = stock.find(s => 
+            s.category === finalCategory && 
+            s.name.toLowerCase() === form.name.toLowerCase() && 
+            String(s.size) === String(sz)
+          );
+
+          if (existing) {
+            // Update existing item
+            const qtyToAdd = form.quantity !== '' ? parseInt(form.quantity) : 0;
+            const workshopQtyToAdd = form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0;
+            const embroideryQtyToAdd = form.embroidery_quantity !== '' ? parseInt(form.embroidery_quantity) : 0;
+            
+            const r = await apiFetch(`/api/stock/${existing.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                quantity: (existing.quantity || 0) + qtyToAdd,
+                workshop_quantity: (existing.workshop_quantity || 0) + workshopQtyToAdd,
+                embroidery_quantity: (existing.embroidery_quantity || 0) + embroideryQtyToAdd,
+                price: form.price !== '' ? parseFloat(form.price) : existing.price,
+                low_stock_threshold: form.low_stock_threshold !== '' ? parseInt(form.low_stock_threshold) : existing.low_stock_threshold
+              })
+            });
+            if (!r.ok) { const d = await r.json(); throw new Error(d.error || `Failed to update existing item for size ${sz}`); }
+          } else {
+            // Create new item
+            const r = await apiFetch('/api/stock', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: form.name.trim(),
+                category: finalCategory,
+                size: sz,
+                quantity: form.quantity !== '' ? parseInt(form.quantity) : 0,
+                workshop_quantity: form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0,
+                embroidery_quantity: form.embroidery_quantity !== '' ? parseInt(form.embroidery_quantity) : 0,
+                price: form.price !== '' ? parseFloat(form.price) : null,
+                low_stock_threshold: form.low_stock_threshold !== '' ? parseInt(form.low_stock_threshold) : 10,
+                barcode: form.barcode.trim() || null,
+                source_type: form.source_type
+              })
+            });
+            if (!r.ok) { const d = await r.json(); throw new Error(d.error || `Failed to create new item for size ${sz}`); }
+          }
         }
       }
-
-      const r = await apiFetch(editItem?`/api/stock/${editItem.id}`:'/api/stock', {
-        method: editItem?'PUT':'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ 
-          ...form, 
-          quantity:form.quantity!==''?parseInt(form.quantity):0, 
-          price:form.price!==''?parseFloat(form.price):null, 
-          low_stock_threshold:form.low_stock_threshold!==''?parseInt(form.low_stock_threshold):10,
-          barcode:form.barcode.trim()||null,
-          workshop_quantity:form.workshop_quantity!==''?parseInt(form.workshop_quantity):0,
-          embroidery_quantity:form.embroidery_quantity!==''?parseInt(form.embroidery_quantity):0,
-          source_type:form.source_type
-        }),
-      });
-      if (!r.ok) { const d=await r.json(); throw new Error(d.error||'Failed'); }
-      await fetchStock(); setShowModal(false);
-    } catch (e) { setFormError(e.message); } finally { setSaving(false); }
+      await fetchStock();
+      setShowModal(false);
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleLogProductionSubmit = async (e, styleStockItems) => {
@@ -1928,37 +2014,132 @@ export default function StockManager({ user }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Category</label>
-                <select className="input" value={form.category} onChange={e => {
-                  const cat = e.target.value;
-                  setForm(f => ({
-                    ...f,
-                    category: cat,
-                    source_type: (cat === 'Sweaters' || cat === 'Tracksuits' || cat === 'Fleece Jackets') ? 'manufactured' : f.source_type,
-                    name: cat === 'Sweaters' && !SWEATER_STYLES.includes(f.name) ? 'Sweater: Navy Plain'
-                        : cat === 'Tracksuits' && !TRACKSUIT_STYLES.includes(f.name) ? 'Tracksuit: Black with White stripes'
-                        : cat === 'Socks' && !SOCK_STYLES.includes(f.name) ? 'Socks: White Plain'
-                        : cat === 'Fleece Jackets' && !FLEECE_JACKET_STYLES.includes(f.name) ? 'Fleece Jacket: Navy Blue'
-                        : f.name,
-                    size: (cat === 'Sweaters' || cat === 'Tracksuits') ? '22' : f.size
-                  }));
-                }}>
-                  <option value="">Select...</option>
-                  {CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label">Size</label>
-                {(form.category === 'Sweaters' || form.category === 'Tracksuits') ? (
-                  <select className="input" value={form.size} onChange={e=>setForm(f=>({...f,size:e.target.value}))}>
-                    {['22', '24', '26', '28', '30', '32', '34', '36', '38', '40'].map(sz => <option key={sz} value={sz}>{sz}</option>)}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Category</label>
+                  <select className="input" value={form.category} onChange={e => {
+                    const cat = e.target.value;
+                    setForm(f => ({
+                      ...f,
+                      category: cat,
+                      source_type: (cat === 'Sweaters' || cat === 'Tracksuits' || cat === 'Fleece Jackets') ? 'manufactured' : f.source_type,
+                      name: cat === 'Sweaters' && !SWEATER_STYLES.includes(f.name) ? 'Sweater: Navy Plain'
+                          : cat === 'Tracksuits' && !TRACKSUIT_STYLES.includes(f.name) ? 'Tracksuit: Black with White stripes'
+                          : cat === 'Socks' && !SOCK_STYLES.includes(f.name) ? 'Socks: White Plain'
+                          : cat === 'Fleece Jackets' && !FLEECE_JACKET_STYLES.includes(f.name) ? 'Fleece Jacket: Navy Blue'
+                          : f.name,
+                      size: (cat === 'Sweaters' || cat === 'Tracksuits') ? '22' : f.size
+                    }));
+                  }}>
+                    <option value="">Select...</option>
+                    {CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
                   </select>
+                </div>
+                
+                {editItem ? (
+                  <div>
+                    <label className="label">Size</label>
+                    {(form.category === 'Sweaters' || form.category === 'Tracksuits') ? (
+                      <select className="input" value={form.size} onChange={e=>setForm(f=>({...f,size:e.target.value}))}>
+                        {['22', '24', '26', '28', '30', '32', '34', '36', '38', '40'].map(sz => <option key={sz} value={sz}>{sz}</option>)}
+                      </select>
+                    ) : (
+                      <input className="input" value={form.size} onChange={e=>setForm(f=>({...f,size:e.target.value}))} placeholder="e.g. Age 7-8" />
+                    )}
+                  </div>
                 ) : (
-                  <input className="input" value={form.size} onChange={e=>setForm(f=>({...f,size:e.target.value}))} placeholder="e.g. Age 7-8" />
+                  <div>
+                    <label className="label">Single Size Input (Optional)</label>
+                    <input
+                      className="input"
+                      value={form.size}
+                      onChange={e=>setForm(f=>({...f,size:e.target.value}))}
+                      placeholder="e.g. Age 7-8"
+                      disabled={form.category === 'Sweaters' || form.category === 'Tracksuits'}
+                    />
+                  </div>
                 )}
               </div>
+
+              {form.category === 'Other' && (
+                <div>
+                  <label className="label">Custom Category Name *</label>
+                  <input
+                    type="text"
+                    required
+                    className="input"
+                    placeholder="e.g. Aprons, Chef Coats"
+                    value={form.custom_category}
+                    onChange={(e) => setForm(f => ({ ...f, custom_category: e.target.value }))}
+                  />
+                </div>
+              )}
+
+              {!editItem && (
+                <div className="border-t border-zinc-150 pt-3">
+                  <label className="label font-bold text-indigo-700 dark:text-indigo-400">Select Sizes to Add *</label>
+                  <div className="grid grid-cols-5 gap-2 border border-zinc-200 dark:border-zinc-800 p-3 rounded-lg max-h-32 overflow-y-auto bg-zinc-50 dark:bg-zinc-900/30">
+                    {[
+                      '20', '22', '24', '26', '28', '30', '32', '34', '36', '38', '40', '42',
+                      'S', 'M', 'L', 'XL', 'XXL',
+                      'Age 3-4', 'Age 5-6', 'Age 7-8', 'Age 9-10', 'Age 11-12', 'Age 13-14'
+                    ].map(sz => {
+                      const isChecked = (form.selectedSizes || []).includes(sz);
+                      return (
+                        <label key={sz} className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-theme-primary">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setForm(f => ({ ...f, selectedSizes: [...(f.selectedSizes || []), sz] }));
+                              } else {
+                                setForm(f => ({ ...f, selectedSizes: (f.selectedSizes || []).filter(x => x !== sz) }));
+                              }
+                            }}
+                          />
+                          {sz}
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-2 flex gap-2 items-center">
+                    <button
+                      type="button"
+                      className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded"
+                      onClick={() => {
+                        const sz = form.size.trim();
+                        if (sz && !(form.selectedSizes || []).includes(sz)) {
+                          setForm(f => ({ ...f, selectedSizes: [...(f.selectedSizes || []), sz], size: '' }));
+                        }
+                      }}
+                      disabled={!form.size.trim()}
+                    >
+                      + Link Size Input
+                    </button>
+                  </div>
+
+                  {form.selectedSizes && form.selectedSizes.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <span className="text-[10px] text-theme-muted font-bold uppercase shrink-0 mt-1 mr-1">Selected:</span>
+                      {form.selectedSizes.map(sz => (
+                        <span key={sz} className="text-xs font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-400 px-2.5 py-0.5 rounded flex items-center gap-1">
+                          {sz}
+                          <button
+                            type="button"
+                            className="text-red-500 hover:text-red-700 font-extrabold text-[10px] leading-none"
+                            onClick={() => setForm(f => ({ ...f, selectedSizes: f.selectedSizes.filter(x => x !== sz) }))}
+                          >
+                            x
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-3">
