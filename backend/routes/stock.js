@@ -68,8 +68,11 @@ router.post('/sales', async (req, res) => {
     if (!pin) return res.status(400).json({ error: 'Staff PIN is required' });
 
     // Validate PIN
-    const staff = await db.query_one('SELECT name, role FROM users WHERE pin = $1', [pin.trim()]);
+    const staff = await db.query_one('SELECT id, name, role FROM users WHERE pin = $1', [pin.trim()]);
     if (!staff) return res.status(400).json({ error: 'Invalid staff PIN code' });
+    if (req.user && staff.id !== req.user.id) {
+      return res.status(403).json({ error: 'The PIN code must belong to the logged-in staff member' });
+    }
 
     const soldBy = `${staff.name} (${staff.role})`;
 
@@ -467,9 +470,12 @@ router.post('/', async (req, res) => {
       if (!pin) {
         return res.status(400).json({ error: 'Staff PIN code is required to record initial stock quantities' });
       }
-      const staff = await db.query_one('SELECT name, role FROM users WHERE pin = $1', [pin.trim()]);
+      const staff = await db.query_one('SELECT id, name, role FROM users WHERE pin = $1', [pin.trim()]);
       if (!staff) {
         return res.status(400).json({ error: 'Invalid staff PIN code' });
+      }
+      if (req.user && staff.id !== req.user.id) {
+        return res.status(403).json({ error: 'The PIN code must belong to the logged-in staff member' });
       }
       adjustedBy = `${staff.name} (${staff.role})`;
     }
@@ -523,9 +529,12 @@ router.put('/:id', async (req, res) => {
       if (!pin) {
         return res.status(400).json({ error: 'Staff PIN code is required to adjust stock quantities directly' });
       }
-      const staff = await db.query_one('SELECT name, role FROM users WHERE pin = $1', [pin.trim()]);
+      const staff = await db.query_one('SELECT id, name, role FROM users WHERE pin = $1', [pin.trim()]);
       if (!staff) {
         return res.status(400).json({ error: 'Invalid staff PIN code' });
+      }
+      if (req.user && staff.id !== req.user.id) {
+        return res.status(403).json({ error: 'The PIN code must belong to the logged-in staff member' });
       }
       adjustedBy = `${staff.name} (${staff.role})`;
     }
