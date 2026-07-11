@@ -2228,8 +2228,8 @@ export default function StockManager({ user }) {
 
             {/* PIN Authorization for direct stock adjustments */}
             {((!editItem && (
-                (form.quantity && parseInt(form.quantity) > 0) || 
-                (form.workshop_quantity && parseInt(form.workshop_quantity) > 0)
+                ((!editItem && form.selectedSizes?.length > 0) ? form.selectedSizes.reduce((sum, sz) => sum + (form.sizeQuantities?.[sz] ? parseInt(form.sizeQuantities[sz]) : 0), 0) : parseInt(form.quantity || 0)) > 0 || 
+                ((!editItem && form.selectedSizes?.length > 0) ? form.selectedSizes.reduce((sum, sz) => sum + (form.sizeWorkshopQuantities?.[sz] ? parseInt(form.sizeWorkshopQuantities[sz]) : 0), 0) : parseInt(form.workshop_quantity || 0)) > 0
               )) || (editItem && (
                 parseInt(form.quantity || 0) !== parseInt(editItem.quantity || 0) ||
                 parseInt(form.workshop_quantity || 0) !== parseInt(editItem.workshop_quantity || 0) ||
