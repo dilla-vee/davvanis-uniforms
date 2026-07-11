@@ -337,10 +337,22 @@ export default function OrdersManager({ user }) {
       collectionDate = orderDetail.collection_date;
     }
 
+    // Format collection date safely — handles "YYYY-MM-DD" strings and full datetimes
+    const formatDate = (d) => {
+      if (!d) return '';
+      // If it's a plain date string like "2026-07-15", parse as local date
+      if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        const [y, m, day] = d.split('-');
+        return new Date(+y, +m - 1, +day).toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' });
+      }
+      const parsed = new Date(d);
+      return isNaN(parsed) ? String(d) : parsed.toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' });
+    };
+
     let text = `*DAVVANIS UNIFORMS - PRICE QUOTATION*\n`;
     text += `----------------------------------\n`;
-    text += `*Date:* ${new Date().toLocaleDateString()}\n`;
-    if (collectionDate) text += `*Collection Date:* ${new Date(collectionDate).toLocaleDateString()}\n`;
+    text += `*Quotation Date:* ${new Date().toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' })}\n`;
+    text += `*Collection Date:* ${collectionDate ? formatDate(collectionDate) : 'To be confirmed'}\n`;
     text += `*Client:* ${clientName}\n`;
     if (clientDetails) text += `*Details:* ${clientDetails}\n`;
     text += `*Shop:* Shop J-100 / J-101 & Block C SHOP 6\n`;
