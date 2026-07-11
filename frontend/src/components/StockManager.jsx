@@ -1066,6 +1066,8 @@ export default function StockManager({ user }) {
       custom_category:'', 
       size:'', 
       selectedSizes: [], 
+      sizeQuantities: {},
+      sizeWorkshopQuantities: {},
       quantity: user?.role === 'workshop' || user?.role === 'embroidery' ? '0' : '', 
       price:'', 
       low_stock_threshold:'10', 
@@ -1088,6 +1090,8 @@ export default function StockManager({ user }) {
       custom_category: '', 
       size:item.size||'', 
       selectedSizes: [item.size||''], 
+      sizeQuantities: {},
+      sizeWorkshopQuantities: {},
       quantity:item.quantity!=null?String(item.quantity):'', 
       price:item.price!=null?String(item.price):'', 
       low_stock_threshold:item.low_stock_threshold!=null?String(item.low_stock_threshold):'10', 
@@ -1159,8 +1163,8 @@ export default function StockManager({ user }) {
 
           if (existing) {
             // Update existing item
-            const qtyToAdd = form.quantity !== '' ? parseInt(form.quantity) : 0;
-            const workshopQtyToAdd = form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0;
+            const qtyToAdd = (form.sizeQuantities && form.sizeQuantities[sz] !== undefined && form.sizeQuantities[sz] !== '') ? parseInt(form.sizeQuantities[sz]) : (form.quantity !== '' ? parseInt(form.quantity) : 0);
+            const workshopQtyToAdd = (form.sizeWorkshopQuantities && form.sizeWorkshopQuantities[sz] !== undefined && form.sizeWorkshopQuantities[sz] !== '') ? parseInt(form.sizeWorkshopQuantities[sz]) : (form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0);
             const embroideryQtyToAdd = form.embroidery_quantity !== '' ? parseInt(form.embroidery_quantity) : 0;
             
             const r = await apiFetch(`/api/stock/${existing.id}`, {
@@ -1178,6 +1182,10 @@ export default function StockManager({ user }) {
             if (!r.ok) { const d = await r.json(); throw new Error(d.error || `Failed to update existing item for size ${sz}`); }
           } else {
             // Create new item
+            const qtyToAdd = (form.sizeQuantities && form.sizeQuantities[sz] !== undefined && form.sizeQuantities[sz] !== '') ? parseInt(form.sizeQuantities[sz]) : (form.quantity !== '' ? parseInt(form.quantity) : 0);
+            const workshopQtyToAdd = (form.sizeWorkshopQuantities && form.sizeWorkshopQuantities[sz] !== undefined && form.sizeWorkshopQuantities[sz] !== '') ? parseInt(form.sizeWorkshopQuantities[sz]) : (form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0);
+            const embroideryQtyToAdd = form.embroidery_quantity !== '' ? parseInt(form.embroidery_quantity) : 0;
+
             const r = await apiFetch('/api/stock', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1185,9 +1193,9 @@ export default function StockManager({ user }) {
                 name: form.name.trim(),
                 category: finalCategory,
                 size: sz,
-                quantity: form.quantity !== '' ? parseInt(form.quantity) : 0,
-                workshop_quantity: form.workshop_quantity !== '' ? parseInt(form.workshop_quantity) : 0,
-                embroidery_quantity: form.embroidery_quantity !== '' ? parseInt(form.embroidery_quantity) : 0,
+                quantity: qtyToAdd,
+                workshop_quantity: workshopQtyToAdd,
+                embroidery_quantity: embroideryQtyToAdd,
                 price: form.price !== '' ? parseFloat(form.price) : null,
                 low_stock_threshold: form.low_stock_threshold !== '' ? parseInt(form.low_stock_threshold) : 10,
                 barcode: form.barcode.trim() || null,
@@ -2137,20 +2145,37 @@ export default function StockManager({ user }) {
                   </div>
 
                   {form.selectedSizes && form.selectedSizes.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      <span className="text-[10px] text-theme-muted font-bold uppercase shrink-0 mt-1 mr-1">Selected:</span>
+                    <div className="mt-2 flex flex-col gap-2">
+                      <span className="text-[10px] text-theme-muted font-bold uppercase shrink-0">Selected Sizes Quantities:</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       {form.selectedSizes.map(sz => (
-                        <span key={sz} className="text-xs font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-400 px-2.5 py-0.5 rounded flex items-center gap-1">
-                          {sz}
-                          <button
-                            type="button"
-                            className="text-red-500 hover:text-red-700 font-extrabold text-[10px] leading-none"
-                            onClick={() => setForm(f => ({ ...f, selectedSizes: f.selectedSizes.filter(x => x !== sz) }))}
-                          >
-                            x
-                          </button>
-                        </span>
+                        <div key={sz} className="flex flex-col bg-indigo-50 dark:bg-indigo-950/20 p-2 rounded border border-indigo-100 dark:border-indigo-900/30">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-bold text-indigo-800 dark:text-indigo-400">{sz}</span>
+                            <button
+                                type="button"
+                                className="text-red-500 hover:text-red-700 font-extrabold text-sm ml-1 leading-none"
+                                onClick={() => setForm(f => ({ ...f, selectedSizes: f.selectedSizes.filter(x => x !== sz) }))}
+                              >
+                                &times;
+                              </button>
+                          </div>
+                          <div className="flex gap-2">
+                             <input type="number" min="0" placeholder="Shop Qty" className="input py-1 px-2 text-xs flex-1" 
+                               value={form.sizeQuantities?.[sz] !== undefined ? form.sizeQuantities[sz] : form.quantity}
+                               onChange={e => setForm(f => ({...f, sizeQuantities: {...(f.sizeQuantities||{}), [sz]: e.target.value}}))}
+                               title="Shop Quantity"
+                             />
+                             <input type="number" min="0" placeholder="Workshop Qty" className="input py-1 px-2 text-xs flex-1" 
+                               value={form.sizeWorkshopQuantities?.[sz] !== undefined ? form.sizeWorkshopQuantities[sz] : form.workshop_quantity}
+                               onChange={e => setForm(f => ({...f, sizeWorkshopQuantities: {...(f.sizeWorkshopQuantities||{}), [sz]: e.target.value}}))}
+                               disabled={form.source_type === 'purchased'}
+                               title="Workshop Quantity"
+                             />
+                          </div>
+                        </div>
                       ))}
+                      </div>
                     </div>
                   )}
                 </div>
