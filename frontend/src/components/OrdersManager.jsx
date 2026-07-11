@@ -1,6 +1,142 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../utils/api';
 
+function printWithIframe(htmlContent) {
+  const old = document.getElementById('__print_quotation_frame__');
+  if (old) old.remove();
+
+  const frame = document.createElement('iframe');
+  frame.id = '__print_quotation_frame__';
+  frame.style.position = 'fixed';
+  frame.style.right = '0';
+  frame.style.bottom = '0';
+  frame.style.width = '0';
+  frame.style.height = '0';
+  frame.style.border = '0';
+  document.body.appendChild(frame);
+
+  frame.contentDocument.write(htmlContent);
+  frame.contentDocument.close();
+
+  frame.onload = () => {
+    setTimeout(() => {
+      frame.contentWindow.print();
+    }, 200);
+  };
+}
+
+const generateQuotationHtml = ({ clientName, clientDetails, date, items, total, notes }) => `
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Quotation - Davvanis Uniforms</title>
+    <style>
+      body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 0; padding: 40px; font-size: 14px; line-height: 1.5; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 2px solid #4f46e5; padding-bottom: 20px; }
+      .brand-title { font-size: 28px; font-weight: bold; color: #4f46e5; letter-spacing: -0.5px; }
+      .brand-subtitle { font-size: 12px; color: #6b7280; text-transform: uppercase; margin-top: 4px; }
+      .meta-info { text-align: right; }
+      .meta-title { font-size: 22px; font-weight: bold; color: #111827; }
+      .meta-date { margin-top: 6px; color: #4b5563; }
+      
+      .details-grid { display: flex; justify-content: space-between; gap: 40px; margin-bottom: 40px; }
+      .details-box { flex: 1; background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; }
+      .details-label { font-size: 11px; font-weight: bold; color: #6b7280; text-transform: uppercase; margin-bottom: 8px; }
+      .details-value { font-size: 15px; font-weight: 600; color: #1f2937; }
+      .details-sub { font-size: 13px; color: #4b5563; margin-top: 2px; }
+      
+      table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+      th { background: #f3f4f6; color: #374151; font-weight: bold; text-align: left; padding: 12px 16px; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #e5e7eb; }
+      td { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #4b5563; }
+      .text-right { text-align: right; }
+      
+      .totals-section { display: flex; justify-content: flex-end; margin-bottom: 40px; }
+      .totals-table { width: 300px; margin-bottom: 0; }
+      .totals-table td { border: none; padding: 8px 16px; }
+      .totals-table tr.grand-total td { font-size: 18px; font-weight: bold; color: #4f46e5; border-top: 2px solid #4f46e5; padding-top: 12px; }
+      
+      .notes-box { background: #f3f4f6; padding: 16px; border-radius: 8px; border-left: 4px solid #9ca3af; font-size: 13px; color: #4b5563; }
+      .footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 60px; border-top: 1px solid #e5e7eb; padding-top: 20px; }
+      
+      @media print {
+        body { padding: 20px; }
+        .details-box { background: #fff !important; border: 1px solid #ddd !important; }
+        th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div>
+        <div class="brand-title">DAVVANIS UNIFORMS</div>
+        <div class="brand-subtitle">High Quality School &amp; Corporate Wear</div>
+      </div>
+      <div class="meta-info">
+        <div class="meta-title">PRICE QUOTATION</div>
+        <div class="meta-date">Date: ${date}</div>
+      </div>
+    </div>
+    
+    <div class="details-grid">
+      <div class="details-box">
+        <div class="details-label">Quotation Prepared For:</div>
+        <div class="details-value">${clientName}</div>
+        ${clientDetails ? `<div class="details-sub">${clientDetails}</div>` : ''}
+      </div>
+      <div class="details-box" style="text-align: right;">
+        <div class="details-label">Issued By:</div>
+        <div class="details-value">Davvanis Uniforms</div>
+        <div class="details-sub">Nairobi, Kenya</div>
+      </div>
+    </div>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Size</th>
+          <th class="text-right">Qty</th>
+          <th class="text-right">Unit Price (Ksh)</th>
+          <th class="text-right">Total (Ksh)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(item => `
+          <tr>
+            <td style="font-weight: 500; color: #1f2937;">${item.name}</td>
+            <td>${item.size}</td>
+            <td class="text-right">${item.quantity}</td>
+            <td class="text-right">${item.unit_price.toFixed(2)}</td>
+            <td class="text-right" style="font-weight: 600; color: #1f2937;">${(item.quantity * item.unit_price).toFixed(2)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    
+    <div class="totals-section">
+      <table class="totals-table">
+        <tr class="grand-total">
+          <td>Grand Total:</td>
+          <td class="text-right">Ksh ${total.toFixed(2)}</td>
+        </tr>
+      </table>
+    </div>
+    
+    ${notes ? `
+      <div class="notes-box">
+        <div style="font-weight: bold; margin-bottom: 4px; color: #1f2937;">Notes &amp; Terms:</div>
+        <div>${notes}</div>
+      </div>
+    ` : ''}
+    
+    <div class="footer">
+      <p>Thank you for choosing Davvanis Uniforms!</p>
+      <p style="margin-top: 4px; font-size: 10px;">This is a computer-generated quotation and does not require a physical signature.</p>
+    </div>
+  </body>
+</html>
+`;
+
 function Modal({ title, onClose, children, wide }) {
   useEffect(() => {
     const h = e => e.key === 'Escape' && onClose();
@@ -49,6 +185,73 @@ export default function OrdersManager({ user }) {
   const [addError, setAddError] = useState('');
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  const handlePrintQuotation = () => {
+    let clientName = 'Walk-in Guest';
+    let clientDetails = '';
+    
+    if (!addForm.isGuest) {
+      const c = clients.find(cl => String(cl.id) === String(addForm.client_id));
+      if (c) {
+        clientName = c.name;
+        clientDetails = c.school ? `School: ${c.school}` : '';
+      }
+    } else {
+      clientName = addForm.guest_name || 'Walk-in Guest';
+      clientDetails = addForm.guest_contact ? `Contact: ${addForm.guest_contact}` : '';
+    }
+
+    const items = addForm.items.map(i => {
+      const s = stock.find(st => String(st.id) === String(i.stock_id));
+      return {
+        name: s ? s.name : 'Unknown Item',
+        size: i.size || s?.size || '—',
+        quantity: parseInt(i.quantity) || 0,
+        unit_price: parseFloat(i.unit_price) || 0,
+      };
+    });
+
+    const total = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+
+    const html = generateQuotationHtml({
+      clientName,
+      clientDetails,
+      date: new Date().toLocaleDateString(),
+      items,
+      total,
+      notes: addForm.notes
+    });
+
+    printWithIframe(html);
+  };
+
+  const handlePrintExistingQuotation = () => {
+    if (!orderDetail) return;
+    const clientName = orderDetail.client_name || orderDetail.guest_name || 'Walk-in Guest';
+    const clientDetails = orderDetail.client_school 
+      ? `School: ${orderDetail.client_school}` 
+      : (orderDetail.guest_contact ? `Contact: ${orderDetail.guest_contact}` : '');
+
+    const items = (orderDetail.items || []).map(i => ({
+      name: i.stock_name || `Item #${i.stock_id}`,
+      size: i.size || '—',
+      quantity: parseInt(i.quantity) || 0,
+      unit_price: parseFloat(i.unit_price) || 0,
+    }));
+
+    const total = orderDetail.total_price || items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+
+    const html = generateQuotationHtml({
+      clientName,
+      clientDetails,
+      date: new Date(orderDetail.order_date).toLocaleDateString(),
+      items,
+      total,
+      notes: orderDetail.notes
+    });
+
+    printWithIframe(html);
+  };
 
   const fetchOrders = async () => {
     try { setLoading(true); const r = await apiFetch('/api/orders'); setOrders(await r.json()); }
@@ -248,7 +451,12 @@ export default function OrdersManager({ user }) {
                   </table>
                 </div>
               </div>
-              <div className="flex justify-end mt-4">
+              <div className="flex justify-between items-center mt-6">
+                <div>
+                  <button type="button" onClick={handlePrintExistingQuotation} className="btn-secondary text-sm flex items-center gap-1">
+                    🖨️ Print Quotation
+                  </button>
+                </div>
                 <div className="px-5 py-3 rounded-lg w-64 space-y-2" style={{backgroundColor:'rgba(99,102,241,0.05)', border:'1px solid rgba(99,102,241,0.1)'}}>
                   <div className="flex justify-between text-sm">
                     <span className="text-theme-secondary">Total:</span>
@@ -353,6 +561,9 @@ export default function OrdersManager({ user }) {
             )}
             <div className="flex gap-3 pt-1">
               <button type="submit" disabled={saving} className="btn-primary flex-1">{saving?'Creating...':'Create Order'}</button>
+              {addForm.items.length > 0 && (
+                <button type="button" onClick={handlePrintQuotation} className="btn-secondary flex-1">📄 Print Quotation</button>
+              )}
               <button type="button" onClick={()=>setShowAddModal(false)} className="btn-secondary flex-1">Cancel</button>
             </div>
           </form>
