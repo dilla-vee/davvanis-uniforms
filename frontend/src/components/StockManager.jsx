@@ -1036,7 +1036,8 @@ export default function StockManager({ user }) {
   const [editingEmbroideryQty, setEditingEmbroideryQty] = useState(null);
   const [embroideryQtyValue, setEmbroideryQtyValue] = useState('');
   const qtyRef = useRef(null);
-  const [form, setForm] = useState({ name:'', category:'', size:'', quantity:'', price:'', low_stock_threshold:'10', barcode:'', workshop_quantity:'0', embroidery_quantity:'0', source_type:'purchased' });
+  const [form, setForm] = useState({ name:'', category:'', custom_category:'', size:'', selectedSizes:[], quantity:'', price:'', low_stock_threshold:'10', barcode:'', workshop_quantity:'0', embroidery_quantity:'0', source_type:'purchased', pin:'' });
+  const [overrideShopQty, setOverrideShopQty] = useState(false);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [showSales, setShowSales] = useState(false);
@@ -1071,9 +1072,11 @@ export default function StockManager({ user }) {
       barcode:'', 
       workshop_quantity:'0', 
       embroidery_quantity:'0', 
-      source_type: user?.role === 'workshop' ? 'manufactured' : 'purchased' 
+      source_type: user?.role === 'workshop' ? 'manufactured' : 'purchased',
+      pin: ''
     }); 
     setFormError(''); 
+    setOverrideShopQty(false);
     setShowModal(true); 
   };
   
@@ -1091,9 +1094,11 @@ export default function StockManager({ user }) {
       barcode:item.barcode||'', 
       workshop_quantity:item.workshop_quantity!=null?String(item.workshop_quantity):'0', 
       embroidery_quantity:item.embroidery_quantity!=null?String(item.embroidery_quantity):'0', 
-      source_type:item.source_type||'purchased' 
+      source_type:item.source_type||'purchased',
+      pin: ''
     }); 
     setFormError(''); 
+    setOverrideShopQty(false);
     setShowModal(true); 
   };
 
@@ -1126,7 +1131,8 @@ export default function StockManager({ user }) {
             price: form.price !== '' ? parseFloat(form.price) : null,
             low_stock_threshold: form.low_stock_threshold !== '' ? parseInt(form.low_stock_threshold) : 10,
             barcode: form.barcode.trim() || null,
-            source_type: form.source_type
+            source_type: form.source_type,
+            pin: form.pin
           })
         });
         if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to update item'); }
@@ -1165,7 +1171,8 @@ export default function StockManager({ user }) {
                 workshop_quantity: (existing.workshop_quantity || 0) + workshopQtyToAdd,
                 embroidery_quantity: (existing.embroidery_quantity || 0) + embroideryQtyToAdd,
                 price: form.price !== '' ? parseFloat(form.price) : existing.price,
-                low_stock_threshold: form.low_stock_threshold !== '' ? parseInt(form.low_stock_threshold) : existing.low_stock_threshold
+                low_stock_threshold: form.low_stock_threshold !== '' ? parseInt(form.low_stock_threshold) : existing.low_stock_threshold,
+                pin: form.pin
               })
             });
             if (!r.ok) { const d = await r.json(); throw new Error(d.error || `Failed to update existing item for size ${sz}`); }
@@ -1184,7 +1191,8 @@ export default function StockManager({ user }) {
                 price: form.price !== '' ? parseFloat(form.price) : null,
                 low_stock_threshold: form.low_stock_threshold !== '' ? parseInt(form.low_stock_threshold) : 10,
                 barcode: form.barcode.trim() || null,
-                source_type: form.source_type
+                source_type: form.source_type,
+                pin: form.pin
               })
             });
             if (!r.ok) { const d = await r.json(); throw new Error(d.error || `Failed to create new item for size ${sz}`); }
@@ -1842,7 +1850,14 @@ export default function StockManager({ user }) {
                               </div>
                             </div>
                             <div className="flex items-center justify-between text-[11px] mt-1">
-                              <span className="text-theme-muted">{!isWorkshop && `Price: ${item.price!=null?KSH+Number(item.price).toFixed(2):'--'}`}</span>
+                              <span className="text-theme-muted">
+                                {!isWorkshop && `Price: ${item.price!=null?KSH+Number(item.price).toFixed(2):'--'}`}
+                                {item.last_adjusted_by && (
+                                  <span className="ml-2 italic text-[10px] text-indigo-600 dark:text-indigo-400">
+                                    (Adjusted: {item.last_adjusted_by})
+                                  </span>
+                                )}
+                              </span>
                               <div className="flex gap-2">
                                 {((isWorkshop && item.source_type === 'manufactured') || !isWorkshop) && (
                                   <button onClick={()=>openEdit(item)} className="text-indigo-600 font-medium">Edit</button>
@@ -2145,8 +2160,29 @@ export default function StockManager({ user }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">Shop Quantity</label>
-                <input type="number" min="0" className="input" value={form.quantity} onChange={e=>setForm(f=>({...f,quantity:e.target.value}))} disabled={user?.role === 'workshop' || (form.source_type === 'manufactured' && editItem)} />
-                {form.source_type === 'manufactured' && editItem && <p className="text-[10px] text-theme-muted mt-0.5">{user?.role === 'workshop' ? 'Managed by workshop stock control' : 'Managed via dispatches'}</p>}
+                <input 
+                  type="number" 
+                  min="0" 
+                  className="input" 
+                  value={form.quantity} 
+                  onChange={e=>setForm(f=>({...f,quantity:e.target.value}))} 
+                  disabled={user?.role === 'workshop' || (form.source_type === 'manufactured' && editItem && !overrideShopQty)} 
+                />
+                {form.source_type === 'manufactured' && editItem && (
+                  <div className="mt-1 flex flex-col gap-1">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                      <input
+                        type="checkbox"
+                        checked={overrideShopQty}
+                        onChange={(e) => setOverrideShopQty(e.target.checked)}
+                      />
+                      Override & Adjust Directly
+                    </label>
+                    {!overrideShopQty && (
+                      <p className="text-[10px] text-theme-muted">{user?.role === 'workshop' ? 'Managed by workshop stock control' : 'Managed via dispatches'}</p>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="label">Workshop Quantity</label>
@@ -2164,6 +2200,35 @@ export default function StockManager({ user }) {
                 <input type="number" min="0" className="input" value={form.low_stock_threshold} onChange={e=>setForm(f=>({...f,low_stock_threshold:e.target.value}))} />
               </div>
             </div>
+
+            {/* PIN Authorization for direct stock adjustments */}
+            {((!editItem && (
+                (form.quantity && parseInt(form.quantity) > 0) || 
+                (form.workshop_quantity && parseInt(form.workshop_quantity) > 0)
+              )) || (editItem && (
+                parseInt(form.quantity || 0) !== parseInt(editItem.quantity || 0) ||
+                parseInt(form.workshop_quantity || 0) !== parseInt(editItem.workshop_quantity || 0) ||
+                parseInt(form.embroidery_quantity || 0) !== parseInt(editItem.embroidery_quantity || 0)
+              ))
+            ) && (
+              <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-lg border border-indigo-100 dark:border-indigo-900/40 space-y-2">
+                <label className="label text-indigo-800 dark:text-indigo-300 font-bold flex items-center gap-1">
+                  <span>🔐</span> Staff Authorization PIN *
+                </label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  required
+                  className="input font-mono tracking-widest text-center text-sm py-1.5"
+                  placeholder="Enter 4-Digit PIN to Save"
+                  value={form.pin || ''}
+                  onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '') }))}
+                />
+                <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                  Direct stock adjustments require your security PIN code for auditing.
+                </p>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={saving} className="btn-primary flex-1">{saving?'Saving...':editItem?'Update':'Add Item'}</button>

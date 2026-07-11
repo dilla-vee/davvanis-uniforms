@@ -211,6 +211,7 @@ async function initDB() {
 
       ALTER TABLE embroidery_logs ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES embroidery_clients(id) ON DELETE SET NULL;
       ALTER TABLE embroidery_logs ADD COLUMN IF NOT EXISTS manual_client_name TEXT;
+      ALTER TABLE stock ADD COLUMN IF NOT EXISTS last_adjusted_by TEXT;
     `);
 
     // Create database indexes for scaling and search optimization

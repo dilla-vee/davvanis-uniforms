@@ -11,6 +11,7 @@ const parseStock = r => ({
   embroidery_quantity: parseInt(r.embroidery_quantity) || 0,
   source_type:         r.source_type || 'purchased',
   barcode:             r.barcode || null,
+  last_adjusted_by:    r.last_adjusted_by || null,
 });
 
 // GET /api/stock
@@ -454,22 +455,40 @@ router.get('/:id', async (req, res) => {
 // POST /api/stock
 router.post('/', async (req, res) => {
   try {
-    const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type } = req.body;
+    const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type, pin } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
+
+    let adjustedBy = null;
+    const initialQty = quantity !== undefined ? parseInt(quantity) : 0;
+    const initialWq = workshop_quantity !== undefined ? parseInt(workshop_quantity) : 0;
+    const initialEq = embroidery_quantity !== undefined ? parseInt(embroidery_quantity) : 0;
+
+    if (initialQty > 0 || initialWq > 0 || initialEq > 0) {
+      if (!pin) {
+        return res.status(400).json({ error: 'Staff PIN code is required to record initial stock quantities' });
+      }
+      const staff = await db.query_one('SELECT name, role FROM users WHERE pin = $1', [pin.trim()]);
+      if (!staff) {
+        return res.status(400).json({ error: 'Invalid staff PIN code' });
+      }
+      adjustedBy = `${staff.name} (${staff.role})`;
+    }
+
     let item = await db.query_one(
-      `INSERT INTO stock (name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW()) RETURNING *`,
+      `INSERT INTO stock (name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type, last_adjusted_by, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW()) RETURNING *`,
       [
         name,
         category || null,
         size || null,
-        quantity !== undefined ? parseInt(quantity) : 0,
+        initialQty,
         price !== undefined ? parseFloat(price) : null,
         low_stock_threshold !== undefined ? parseInt(low_stock_threshold) : 10,
         barcode || null,
-        workshop_quantity !== undefined ? parseInt(workshop_quantity) : 0,
-        embroidery_quantity !== undefined ? parseInt(embroidery_quantity) : 0,
-        source_type || 'purchased'
+        initialWq,
+        initialEq,
+        source_type || 'purchased',
+        adjustedBy
       ]
     );
 
@@ -491,10 +510,29 @@ router.put('/:id', async (req, res) => {
   try {
     const existing = await db.query_one('SELECT * FROM stock WHERE id = $1', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Stock item not found' });
-    const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type } = req.body;
+    
+    const { name, category, size, quantity, price, low_stock_threshold, barcode, workshop_quantity, embroidery_quantity, source_type, pin } = req.body;
+    
+    let adjustedBy = existing.last_adjusted_by;
+    const isQtyChanging = 
+      (quantity !== undefined && parseInt(quantity) !== parseInt(existing.quantity || 0)) ||
+      (workshop_quantity !== undefined && parseInt(workshop_quantity) !== parseInt(existing.workshop_quantity || 0)) ||
+      (embroidery_quantity !== undefined && parseInt(embroidery_quantity) !== parseInt(existing.embroidery_quantity || 0));
+
+    if (isQtyChanging) {
+      if (!pin) {
+        return res.status(400).json({ error: 'Staff PIN code is required to adjust stock quantities directly' });
+      }
+      const staff = await db.query_one('SELECT name, role FROM users WHERE pin = $1', [pin.trim()]);
+      if (!staff) {
+        return res.status(400).json({ error: 'Invalid staff PIN code' });
+      }
+      adjustedBy = `${staff.name} (${staff.role})`;
+    }
+
     let updated = await db.query_one(
       `UPDATE stock SET name=$1, category=$2, size=$3, quantity=$4,
-        price=$5, low_stock_threshold=$6, barcode=$7, workshop_quantity=$8, embroidery_quantity=$9, source_type=$10, updated_at=NOW() WHERE id=$11 RETURNING *`,
+        price=$5, low_stock_threshold=$6, barcode=$7, workshop_quantity=$8, embroidery_quantity=$9, source_type=$10, last_adjusted_by=$11, updated_at=NOW() WHERE id=$12 RETURNING *`,
       [
         name  !== undefined ? name   : existing.name,
         category !== undefined ? category : existing.category,
@@ -506,6 +544,7 @@ router.put('/:id', async (req, res) => {
         workshop_quantity !== undefined ? parseInt(workshop_quantity) : existing.workshop_quantity,
         embroidery_quantity !== undefined ? parseInt(embroidery_quantity) : existing.embroidery_quantity,
         source_type !== undefined ? source_type : existing.source_type,
+        adjustedBy,
         req.params.id,
       ]
     );
