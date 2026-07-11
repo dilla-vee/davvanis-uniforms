@@ -253,6 +253,86 @@ export default function OrdersManager({ user }) {
     printWithIframe(html);
   };
 
+  const handleShareWhatsApp = (isNew) => {
+    let clientName = 'Walk-in Guest';
+    let contactNumber = '';
+    let clientDetails = '';
+    let items = [];
+    let total = 0;
+    let notes = '';
+
+    if (isNew) {
+      if (!addForm.isGuest) {
+        const c = clients.find(cl => String(cl.id) === String(addForm.client_id));
+        if (c) {
+          clientName = c.name;
+          contactNumber = c.contact || '';
+          clientDetails = c.school ? `School: ${c.school}` : '';
+        }
+      } else {
+        clientName = addForm.guest_name || 'Walk-in Guest';
+        contactNumber = addForm.guest_contact || '';
+        clientDetails = addForm.guest_contact ? `Contact: ${addForm.guest_contact}` : '';
+      }
+
+      items = addForm.items.map(i => {
+        const s = stock.find(st => String(st.id) === String(i.stock_id));
+        return {
+          name: s ? s.name : 'Unknown Item',
+          size: i.size || s?.size || '—',
+          quantity: parseInt(i.quantity) || 0,
+          unit_price: parseFloat(i.unit_price) || 0,
+        };
+      });
+      total = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+      notes = addForm.notes;
+    } else {
+      if (!orderDetail) return;
+      clientName = orderDetail.client_name || orderDetail.guest_name || 'Walk-in Guest';
+      contactNumber = orderDetail.client_contact || orderDetail.guest_contact || '';
+      clientDetails = orderDetail.client_school 
+        ? `School: ${orderDetail.client_school}` 
+        : (orderDetail.guest_contact ? `Contact: ${orderDetail.guest_contact}` : '');
+
+      items = (orderDetail.items || []).map(i => ({
+        name: i.stock_name || `Item #${i.stock_id}`,
+        size: i.size || '—',
+        quantity: parseInt(i.quantity) || 0,
+        unit_price: parseFloat(i.unit_price) || 0,
+      }));
+      total = orderDetail.total_price || items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+      notes = orderDetail.notes;
+    }
+
+    let text = `*DAVVANIS UNIFORMS - PRICE QUOTATION*\n`;
+    text += `----------------------------------\n`;
+    text += `*Date:* ${new Date().toLocaleDateString()}\n`;
+    text += `*Client:* ${clientName}\n`;
+    if (clientDetails) text += `*Details:* ${clientDetails}\n`;
+    text += `----------------------------------\n\n`;
+    
+    text += `*Items:*\n`;
+    items.forEach((item, idx) => {
+      text += `${idx + 1}. *${item.name}* (Size: ${item.size}) - ${item.quantity} x Ksh ${item.unit_price.toFixed(2)} = *Ksh ${(item.quantity * item.unit_price).toFixed(2)}*\n`;
+    });
+    
+    text += `\n*Grand Total:* *Ksh ${total.toFixed(2)}*\n\n`;
+    
+    if (notes) {
+      text += `*Notes & Terms:*\n_${notes}_\n\n`;
+    }
+    
+    text += `Thank you for choosing Davvanis Uniforms!`;
+
+    let cleanPhone = contactNumber.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '254' + cleanPhone.substring(1);
+    }
+
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   const fetchOrders = async () => {
     try { setLoading(true); const r = await apiFetch('/api/orders'); setOrders(await r.json()); }
     catch (e) { setError(e.message); } finally { setLoading(false); }
@@ -452,11 +532,14 @@ export default function OrdersManager({ user }) {
                 </div>
               </div>
               <div className="flex justify-between items-center mt-6">
-                <div>
-                  <button type="button" onClick={handlePrintExistingQuotation} className="btn-secondary text-sm flex items-center gap-1">
-                    🖨️ Print Quotation
-                  </button>
-                </div>
+                 <div className="flex gap-2">
+                   <button type="button" onClick={handlePrintExistingQuotation} className="btn-secondary text-sm flex items-center gap-1">
+                     🖨️ Print
+                   </button>
+                   <button type="button" onClick={() => handleShareWhatsApp(false)} className="btn-secondary text-sm flex items-center gap-1" style={{ color: '#25D366', borderColor: '#25D366' }}>
+                     💬 WhatsApp
+                   </button>
+                 </div>
                 <div className="px-5 py-3 rounded-lg w-64 space-y-2" style={{backgroundColor:'rgba(99,102,241,0.05)', border:'1px solid rgba(99,102,241,0.1)'}}>
                   <div className="flex justify-between text-sm">
                     <span className="text-theme-secondary">Total:</span>
@@ -559,10 +642,13 @@ export default function OrdersManager({ user }) {
                 </div>
               </div>
             )}
-            <div className="flex gap-3 pt-1">
+            <div className="flex gap-2 pt-1">
               <button type="submit" disabled={saving} className="btn-primary flex-1">{saving?'Creating...':'Create Order'}</button>
               {addForm.items.length > 0 && (
-                <button type="button" onClick={handlePrintQuotation} className="btn-secondary flex-1">📄 Print Quotation</button>
+                <>
+                  <button type="button" onClick={handlePrintQuotation} className="btn-secondary flex-1">📄 Print</button>
+                  <button type="button" onClick={() => handleShareWhatsApp(true)} className="btn-secondary flex-1" style={{ color: '#25D366', borderColor: '#25D366' }}>💬 WhatsApp</button>
+                </>
               )}
               <button type="button" onClick={()=>setShowAddModal(false)} className="btn-secondary flex-1">Cancel</button>
             </div>
