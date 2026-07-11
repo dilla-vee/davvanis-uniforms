@@ -1,8 +1,30 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../utils/api';
 
-// Print using a hidden iframe — works inside Capacitor Android WebView
-function printWithIframe(htmlContent) {
+// Smart print function — uses data URI on Android (where window.print() is blocked),
+// falls back to iframe print on desktop browsers.
+function printContent(htmlContent) {
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const isCapacitor = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+  if (isAndroid || isCapacitor) {
+    // On Android WebView, window.print() is blocked.
+    // Encode as base64 data URI and open in Chrome — Chrome has a native Print button.
+    try {
+      const base64 = btoa(unescape(encodeURIComponent(htmlContent)));
+      const dataUri = 'data:text/html;base64,' + base64;
+      window.open(dataUri, '_blank');
+    } catch (e) {
+      // Last resort: try a blob URL
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    }
+    return;
+  }
+
+  // Desktop: use a hidden iframe + window.print()
   const old = document.getElementById('__print_quotation_frame__');
   if (old) old.remove();
 
@@ -229,7 +251,7 @@ export default function OrdersManager({ user }) {
       collectionDate: addForm.collection_date
     });
 
-    printWithIframe(html);
+    printContent(html);
   };
 
   const handlePrintExistingQuotation = () => {
@@ -258,7 +280,7 @@ export default function OrdersManager({ user }) {
       collectionDate: orderDetail.collection_date
     });
 
-    printWithIframe(html);
+    printContent(html);
   };
 
   const handleShareWhatsApp = (isNew) => {
