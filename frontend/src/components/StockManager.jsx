@@ -452,11 +452,17 @@ function DailySalesModal({ stock, onClose, onSaved }) {
   if (success) {
     const saleId = success.sale.id;
     const saleDate = new Date(success.sale.created_at || new Date()).toLocaleString('en-KE');
+    
+    const formatServedBy = (soldBy) => {
+      if (!soldBy) return 'Staff';
+      return soldBy.split('(')[0].trim();
+    };
+
     const receiptItems = success.items.map(item => {
       const s = stock.find(st => String(st.id) === String(item.stock_id));
       return {
-        name: s ? s.name : 'Unknown Item',
-        size: s ? s.size : '',
+        name: s ? s.name : (item.name || 'Unknown Item'),
+        size: s ? s.size : (item.size || ''),
         qty: parseInt(item.qty_sold) || 0,
         price: parseFloat(item.unit_price) || 0,
         subtotal: (parseFloat(item.unit_price) || 0) * (parseInt(item.qty_sold) || 0)
@@ -469,6 +475,7 @@ function DailySalesModal({ stock, onClose, onSaved }) {
       let text = `Hello! Thank you for purchasing from *Davvanis Uniforms*.\n\n`;
       text += `*Receipt No:* #${saleId}\n`;
       text += `*Date:* ${new Date(success.sale.created_at || new Date()).toLocaleDateString('en-KE')}\n`;
+      text += `*Served By:* ${formatServedBy(success.sale.sold_by || 'Staff')}\n`;
       text += `*Payment Status:* PAID ✅\n\n`;
       text += `*Items Purchased:*\n`;
       receiptItems.forEach(item => {
@@ -480,6 +487,8 @@ function DailySalesModal({ stock, onClose, onSaved }) {
     };
 
     const handlePrintReceipt = () => {
+      const method = success.sale.payment_method || paymentMethod || 'Cash';
+      const client = success.sale.client_name || clientName || '';
       const printWindow = window.open('', '_blank');
       printWindow.document.write(`
         <html>
@@ -513,7 +522,7 @@ function DailySalesModal({ stock, onClose, onSaved }) {
             <table class="header-table">
               <tr>
                 <td style="width: 35%;">Uhuru Market,<br>Shop J-100, J-101<br>&<br>Shop 6 Block C</td>
-                <td style="width: 30%; text-align: center;"><div class="cash-sale">${paymentMethod === 'Cash' ? 'CASH SALE' : paymentMethod.toUpperCase()}</div></td>
+                <td style="width: 30%; text-align: center;"><div class="cash-sale">${method === 'Cash' ? 'CASH SALE' : method.toUpperCase()}</div></td>
                 <td style="width: 35%; text-align: right;">Tel: 0710 289 290<br>0711 404 753<br>Email: davanisuniformsltd@gmail.com</td>
               </tr>
             </table>
@@ -521,21 +530,21 @@ function DailySalesModal({ stock, onClose, onSaved }) {
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
               <div style="width: 65%; display: flex;">
                 <span style="color: #166534; font-weight: bold;">M/S</span>
-                <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${clientName || ''}</span>
+                <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${client}</span>
               </div>
               <div style="width: 30%; display: flex;">
                 <span style="color: #166534; font-weight: bold;">Date:</span>
                 <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${saleDate}</span>
               </div>
             </div>
-
+ 
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
               <div style="width: 100%; display: flex;">
                 <span style="color: #166534; font-weight: bold;">Served By:</span>
-                <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${success?.sale?.sold_by || 'Staff'}</span>
+                <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${formatServedBy(success?.sale?.sold_by || 'Staff')}</span>
               </div>
             </div>
-
+ 
             <table class="items-table">
               <thead>
                 <tr>
@@ -582,14 +591,14 @@ function DailySalesModal({ stock, onClose, onSaved }) {
       `);
       printWindow.document.close();
     };
-
+ 
     return (
       <div className="space-y-4">
         <div className="text-center py-2 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 rounded-lg border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-center gap-2">
           <span className="text-xl">✅</span>
           <span className="font-semibold text-sm">Sale Authorized & Recorded Successfully</span>
         </div>
-
+ 
         {/* Receipt Mockup Preview */}
         <div className="border border-zinc-200 dark:border-zinc-800 p-4 rounded-lg bg-zinc-50 dark:bg-zinc-950 font-mono text-xs text-theme-primary space-y-3 shadow-inner">
           <div className="text-center space-y-0.5">
@@ -602,7 +611,7 @@ function DailySalesModal({ stock, onClose, onSaved }) {
             <div className="flex justify-between"><span>Receipt No:</span><span className="font-bold text-red-600">#{saleId}</span></div>
             <div className="flex justify-between"><span>Date:</span><span>{saleDate}</span></div>
             <div className="flex justify-between"><span>Payment:</span><span className="font-bold" style={{ color: '#166534' }}>{success.sale.payment_method || paymentMethod}</span></div>
-            <div className="flex justify-between"><span>Served By:</span><span className="font-bold">{success.sale.sold_by || 'Staff'}</span></div>
+            <div className="flex justify-between"><span>Served By:</span><span className="font-bold">{formatServedBy(success.sale.sold_by || 'Staff')}</span></div>
           </div>
           <div className="border-t border-dashed border-zinc-300 dark:border-zinc-800 my-2"></div>
           <div className="space-y-1">
@@ -791,6 +800,156 @@ function SalesHistoryModal({ onClose }) {
       .finally(() => setLoading(false));
   }, []);
 
+  const formatServedBy = (soldBy) => {
+    if (!soldBy) return '';
+    return soldBy.split('(')[0].trim();
+  };
+
+  const handlePrintReceipt = (sale) => {
+    const receiptItems = (sale.items || []).map(item => ({
+      name: item.stock_name || 'Unknown Item',
+      size: item.stock_size || '',
+      qty: parseInt(item.qty_sold) || 0,
+      price: parseFloat(item.unit_price) || 0,
+      subtotal: parseFloat(item.subtotal) || 0
+    }));
+    const saleId = sale.id;
+    const saleDate = new Date(sale.created_at || sale.sale_date).toLocaleString('en-KE');
+    const paymentMethod = sale.payment_method || 'Cash';
+    const clientName = sale.client_name || '';
+    const totalVal = parseFloat(sale.total_value) || 0;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Receipt #${saleId}</title>
+          <style>
+            @media print { @page { margin: 0; } body { margin: 1.6cm; } }
+            body { font-family: 'Times New Roman', Times, serif; width: 400px; font-size: 14px; color: #000; }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .italic { font-style: italic; }
+            .title { font-size: 24px; font-weight: 800; color: #166534; margin-bottom: 2px; }
+            .subtitle { font-size: 11px; color: #166534; font-weight: bold; margin-bottom: 8px; }
+            .header-table { width: 100%; font-size: 12px; margin-bottom: 10px; color: #166534; }
+            .header-table td { vertical-align: top; }
+            .cash-sale { background-color: #166534; color: white; padding: 2px 10px; font-weight: bold; display: inline-block; font-size: 13px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { padding: 4px 6px; }
+            .items-table th { border-top: 2px solid #166534; border-bottom: 2px solid #166534; color: #166534; text-align: left; }
+            .items-table td { border-bottom: 1px solid #166534; border-left: 1px solid #166534; border-right: 1px solid #166534; }
+            .items-table th:first-child, .items-table td:first-child { border-left: none; }
+            .items-table th:last-child, .items-table td:last-child { border-right: none; }
+            .right { text-align: right; }
+            .total-row td { border-bottom: 2px solid #166534 !important; font-weight: bold; color: #166534; }
+            .footer { text-align: center; margin-top: 20px; font-style: italic; color: #166534; font-weight: bold; font-size: 16px; }
+          </style>
+        </head>
+        <body>
+          <div class="center title">DAVANIS UNIFORMS</div>
+          <div class="center subtitle">School Uniforms / Corporate Wear / All Uniforms / Embroidery & Branding</div>
+          <table class="header-table">
+            <tr>
+              <td style="width: 35%;">Uhuru Market,<br>Shop J-100, J-101<br>&<br>Shop 6 Block C</td>
+              <td style="width: 30%; text-align: center;"><div class="cash-sale">${paymentMethod === 'Cash' ? 'CASH SALE' : paymentMethod.toUpperCase()}</div></td>
+              <td style="width: 35%; text-align: right;">Tel: 0710 289 290<br>0711 404 753<br>Email: davanisuniformsltd@gmail.com</td>
+            </tr>
+          </table>
+          
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <div style="width: 65%; display: flex;">
+              <span style="color: #166534; font-weight: bold;">M/S</span>
+              <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${clientName}</span>
+            </div>
+            <div style="width: 30%; display: flex;">
+              <span style="color: #166534; font-weight: bold;">Date:</span>
+              <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${saleDate}</span>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px;">
+            <div style="width: 100%; display: flex;">
+              <span style="color: #166534; font-weight: bold;">Served By:</span>
+              <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin-left: 4px; padding-left: 4px;">${formatServedBy(sale.sold_by || 'Staff')}</span>
+            </div>
+          </div>
+
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width: 15%;">Qty</th>
+                <th style="width: 50%;">Particulars</th>
+                <th class="right" style="width: 15%;">@</th>
+                <th class="right" style="width: 20%;">Shs</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${receiptItems.map(item => `
+                <tr>
+                  <td>${item.qty}</td>
+                  <td>${item.name} ${item.size ? `(${item.size})` : ''}</td>
+                  <td class="right">${item.price.toFixed(2)}</td>
+                  <td class="right">${item.subtotal.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+              ${Array.from({ length: Math.max(0, 5 - receiptItems.length) }).map(() => `
+                <tr><td>&nbsp;</td><td></td><td></td><td></td></tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="2" style="border: none !important;">
+                  <span style="color: #166534; font-weight: bold;">E.&.O.E No.</span>
+                  <span style="color: #dc2626; font-size: 18px; margin-left: 5px;">${saleId}</span>
+                </td>
+                <td class="right">TOTAL</td>
+                <td class="right">${totalVal.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            Thank you for shopping Davanis Uniforms.
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleShareWhatsApp = (sale) => {
+    const receiptItems = (sale.items || []).map(item => ({
+      name: item.stock_name || 'Unknown Item',
+      size: item.stock_size || '',
+      qty: parseInt(item.qty_sold) || 0,
+      price: parseFloat(item.unit_price) || 0,
+      subtotal: parseFloat(item.subtotal) || 0
+    }));
+    const saleId = sale.id;
+    const saleDate = new Date(sale.created_at || sale.sale_date).toLocaleDateString('en-KE');
+    const totalVal = parseFloat(sale.total_value) || 0;
+
+    let text = `Hello! Thank you for purchasing from *Davvanis Uniforms*.\n\n`;
+    text += `*Receipt No:* #${saleId}\n`;
+    text += `*Date:* ${saleDate}\n`;
+    text += `*Served By:* ${formatServedBy(sale.sold_by || 'Staff')}\n`;
+    text += `*Payment Status:* PAID ✅\n\n`;
+    text += `*Items Purchased:*\n`;
+    receiptItems.forEach(item => {
+      text += `- ${item.name} ${item.size ? `(${item.size})` : ''} x ${item.qty} @ Ksh ${item.price.toFixed(2)}: *Ksh ${item.subtotal.toFixed(2)}*\n`;
+    });
+    text += `\n*TOTAL PAID:* *Ksh ${totalVal.toFixed(2)}*\n\n`;
+    text += `We appreciate your business! If you have any questions, feel free to reach out.`;
+    
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="space-y-3">
       {loading ? (
@@ -811,7 +970,7 @@ function SalesHistoryModal({ onClose }) {
               {sale.notes && <span className="ml-2 text-xs text-theme-muted">— {sale.notes}</span>}
               <div className="text-xs text-theme-secondary mt-0.5 flex items-center gap-2 flex-wrap">
                 <span>{(sale.items||[]).length} item{sale.items?.length!==1?'s':''} sold</span>
-                {sale.sold_by && <span className="inline-block px-2 py-0.5 rounded font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400">👤 {sale.sold_by}</span>}
+                {sale.sold_by && <span className="inline-block px-2 py-0.5 rounded font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400">👤 {formatServedBy(sale.sold_by)}</span>}
               </div>
             </div>
             <div className="text-right">
@@ -839,6 +998,20 @@ function SalesHistoryModal({ onClose }) {
                   ))}
                 </tbody>
               </table>
+              <div className="flex gap-2 p-3 border-t border-dashed" style={{ borderColor: 'var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={() => handlePrintReceipt(sale)}
+                  className="btn-primary text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1">
+                  🖨️ Reprint Receipt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleShareWhatsApp(sale)}
+                  className="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg flex-1 flex items-center justify-center gap-1">
+                  💬 Share on WhatsApp
+                </button>
+              </div>
             </div>
           )}
         </div>
