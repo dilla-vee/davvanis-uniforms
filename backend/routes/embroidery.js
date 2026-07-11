@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
         el.customer_item_count, 
         el.recorded_by,
         el.client_id,
-        ec.name as client_name
+        COALESCE(ec.name, el.manual_client_name) as client_name
       FROM embroidery_logs el
       LEFT JOIN embroidery_clients ec ON el.client_id = ec.id
     `;
@@ -53,7 +53,8 @@ router.post('/', async (req, res) => {
       payment_method,
       service_description,
       customer_item_count,
-      client_id
+      client_id,
+      manual_client_name
     } = req.body;
 
     if (!log_type) {
@@ -72,9 +73,10 @@ router.post('/', async (req, res) => {
         service_description,
         customer_item_count,
         recorded_by,
-        client_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id, log_type, logged_at, item_name, quantity, price_charged::float, payment_method, service_description, customer_item_count, recorded_by, client_id`,
+        client_id,
+        manual_client_name
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id, log_type, logged_at, item_name, quantity, price_charged::float, payment_method, service_description, customer_item_count, recorded_by, client_id, manual_client_name`,
       [
         log_type,
         item_name || null,
@@ -84,7 +86,8 @@ router.post('/', async (req, res) => {
         service_description || null,
         customer_item_count != null ? parseInt(customer_item_count) : null,
         recorded_by,
-        client_id ? parseInt(client_id) : null
+        client_id ? parseInt(client_id) : null,
+        manual_client_name || null
       ]
     );
 

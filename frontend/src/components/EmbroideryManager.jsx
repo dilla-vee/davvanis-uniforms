@@ -20,7 +20,8 @@ export default function EmbroideryManager({ user }) {
     quantity: '1',
     price_charged: '',
     payment_method: 'Cash',
-    client_id: ''
+    client_id: '',
+    manual_client_name: ''
   });
 
   // Outside Service Form
@@ -29,7 +30,8 @@ export default function EmbroideryManager({ user }) {
     customer_item_count: '1',
     price_charged: '',
     payment_method: 'Cash',
-    client_id: ''
+    client_id: '',
+    manual_client_name: ''
   });
 
   const fetchLogs = async (dateVal) => {
@@ -79,14 +81,15 @@ export default function EmbroideryManager({ user }) {
           quantity: parseInt(itemForm.quantity) || 1,
           price_charged: parseFloat(itemForm.price_charged) || 0,
           payment_method: itemForm.payment_method,
-          client_id: itemForm.client_id ? parseInt(itemForm.client_id) : null
+          client_id: itemForm.client_id ? parseInt(itemForm.client_id) : null,
+          manual_client_name: !itemForm.client_id ? itemForm.manual_client_name.trim() : null
         })
       });
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.error || 'Failed to save log');
       }
-      setItemForm({ item_name: '', quantity: '1', price_charged: '', payment_method: 'Cash', client_id: '' });
+      setItemForm({ item_name: '', quantity: '1', price_charged: '', payment_method: 'Cash', client_id: '', manual_client_name: '' });
       await fetchLogs(filterDate);
     } catch (err) {
       alert(err.message);
@@ -112,14 +115,15 @@ export default function EmbroideryManager({ user }) {
           customer_item_count: parseInt(serviceForm.customer_item_count) || 1,
           price_charged: parseFloat(serviceForm.price_charged) || 0,
           payment_method: serviceForm.payment_method,
-          client_id: serviceForm.client_id ? parseInt(serviceForm.client_id) : null
+          client_id: serviceForm.client_id ? parseInt(serviceForm.client_id) : null,
+          manual_client_name: !serviceForm.client_id ? serviceForm.manual_client_name.trim() : null
         })
       });
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.error || 'Failed to save log');
       }
-      setServiceForm({ service_description: '', customer_item_count: '1', price_charged: '', payment_method: 'Cash', client_id: '' });
+      setServiceForm({ service_description: '', customer_item_count: '1', price_charged: '', payment_method: 'Cash', client_id: '', manual_client_name: '' });
       await fetchLogs(filterDate);
     } catch (err) {
       alert(err.message);
@@ -174,18 +178,32 @@ export default function EmbroideryManager({ user }) {
                 />
               </div>
 
-              <div>
-                <label className="label">Link to Embroidery Client (Optional)</label>
-                <select
-                  className="input"
-                  value={itemForm.client_id}
-                  onChange={(e) => setItemForm((prev) => ({ ...prev, client_id: e.target.value }))}
-                >
-                  <option value="">-- Select Client (None) --</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+              <div className="space-y-2">
+                <div>
+                  <label className="label">Link to Embroidery Client (Optional)</label>
+                  <select
+                    className="input"
+                    value={itemForm.client_id}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, client_id: e.target.value, manual_client_name: '' }))}
+                  >
+                    <option value="">-- Select Client (None) --</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {!itemForm.client_id && (
+                  <div>
+                    <label className="label text-xs text-theme-secondary font-medium">Or Type Client Name Manually (Optional)</label>
+                    <input
+                      type="text"
+                      className="input text-xs py-1.5"
+                      placeholder="e.g. Walk-in Client Name"
+                      value={itemForm.manual_client_name}
+                      onChange={(e) => setItemForm((prev) => ({ ...prev, manual_client_name: e.target.value }))}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -248,18 +266,32 @@ export default function EmbroideryManager({ user }) {
                 />
               </div>
 
-              <div>
-                <label className="label">Link to Embroidery Client (Optional)</label>
-                <select
-                  className="input"
-                  value={serviceForm.client_id}
-                  onChange={(e) => setServiceForm((prev) => ({ ...prev, client_id: e.target.value }))}
-                >
-                  <option value="">-- Select Client (None) --</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+              <div className="space-y-2">
+                <div>
+                  <label className="label">Link to Embroidery Client (Optional)</label>
+                  <select
+                    className="input"
+                    value={serviceForm.client_id}
+                    onChange={(e) => setServiceForm((prev) => ({ ...prev, client_id: e.target.value, manual_client_name: '' }))}
+                  >
+                    <option value="">-- Select Client (None) --</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {!serviceForm.client_id && (
+                  <div>
+                    <label className="label text-xs text-theme-secondary font-medium">Or Type Client Name Manually (Optional)</label>
+                    <input
+                      type="text"
+                      className="input text-xs py-1.5"
+                      placeholder="e.g. Walk-in Client Name"
+                      value={serviceForm.manual_client_name}
+                      onChange={(e) => setServiceForm((prev) => ({ ...prev, manual_client_name: e.target.value }))}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
