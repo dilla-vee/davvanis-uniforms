@@ -130,6 +130,13 @@ export default function EmbroideryManager({ user }) {
 
   const totalRevenue = logs.reduce((sum, log) => sum + (parseFloat(log.price_charged) || 0), 0);
 
+  const clientTotals = logs.reduce((acc, log) => {
+    if (log.client_name) {
+      acc[log.client_name] = (acc[log.client_name] || 0) + (parseFloat(log.price_charged) || 0);
+    }
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -309,6 +316,19 @@ export default function EmbroideryManager({ user }) {
           </div>
         </div>
 
+        <div className="px-5 py-2.5 border-b flex flex-wrap gap-2 items-center bg-zinc-50/50 dark:bg-zinc-950/30" style={{ borderColor: 'var(--border)' }}>
+          <span className="text-xs font-semibold text-theme-secondary">Client Totals Today:</span>
+          {Object.keys(clientTotals).length === 0 ? (
+            <span className="text-xs text-theme-muted">No client logs recorded.</span>
+          ) : (
+            Object.entries(clientTotals).map(([name, total]) => (
+              <span key={name} className="text-xs font-medium bg-indigo-50/80 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400 px-2.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-900/40">
+                {name}: <span className="font-bold">{KSH}{total.toFixed(2)}</span>
+              </span>
+            ))
+          )}
+        </div>
+
         {loading ? (
           <div className="p-6 space-y-3">
             {[1, 2, 3].map((i) => (
@@ -328,6 +348,7 @@ export default function EmbroideryManager({ user }) {
                 <tr>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-theme-secondary uppercase">Time</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-theme-secondary uppercase">Type</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-theme-secondary uppercase">Client</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-theme-secondary uppercase">Description</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-theme-secondary uppercase">Qty / Items</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-theme-secondary uppercase">Amount</th>
@@ -353,12 +374,16 @@ export default function EmbroideryManager({ user }) {
                         </span>
                       </td>
                       <td className="py-3 px-4 font-medium text-theme-primary">
-                        <div>{log.log_type === 'service' ? log.service_description : log.item_name}</div>
-                        {log.client_name && (
-                          <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mt-1 flex items-center gap-1">
-                            <span>👤 Client:</span> {log.client_name}
-                          </div>
+                        {log.client_name ? (
+                          <span className="inline-block px-2 py-0.5 rounded font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400">
+                            {log.client_name}
+                          </span>
+                        ) : (
+                          <span className="text-theme-muted">—</span>
                         )}
+                      </td>
+                      <td className="py-3 px-4 font-medium text-theme-primary">
+                        {log.log_type === 'service' ? log.service_description : log.item_name}
                       </td>
                       <td className="py-3 px-4 text-theme-secondary">
                         {log.log_type === 'service' ? `${log.customer_item_count} items` : `${log.quantity} units`}

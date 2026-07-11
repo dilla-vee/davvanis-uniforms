@@ -347,6 +347,9 @@ export default function EmbroideryClientsManager({ user }) {
                 <div className="flex-1 min-w-0">
                   <h4 className="font-semibold text-gray-800 truncate text-base">{client.name}</h4>
                   <p className="text-xs text-gray-500 font-mono mt-0.5">{client.contact || 'No contact info'}</p>
+                  <div className="mt-1.5 text-xs font-semibold text-green-600 bg-green-50 px-2.5 py-0.5 rounded-full inline-block">
+                    Total Spent: {KSH}{client.total_spent ? Number(client.total_spent).toFixed(2) : '0.00'}
+                  </div>
                   {client.description && (
                     <p className="text-xs text-gray-500 mt-2 line-clamp-2 italic">
                       "{client.description}"
@@ -388,6 +391,13 @@ export default function EmbroideryClientsManager({ user }) {
                   {detailData.email && (
                     <p className="text-xs text-gray-500 mt-1 font-mono">{detailData.email}</p>
                   )}
+                </div>
+
+                <div className="w-full bg-white p-3 rounded-lg border border-gray-100 text-center shadow-sm">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Branding / Spent</p>
+                  <p className="text-lg font-extrabold text-green-600 mt-1">
+                    {KSH}{(detailData.logs || []).reduce((sum, l) => sum + (parseFloat(l.price_charged) || 0), 0).toFixed(2)}
+                  </p>
                 </div>
 
                 {detailData.description && (

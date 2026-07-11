@@ -114,7 +114,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if ((user?.role === 'workshop' || user?.role === 'embroidery') && !['transfers', 'stock', 'orders', 'embroidery'].includes(activePage)) {
+    if (user?.role === 'workshop' && !['transfers', 'stock', 'labels'].includes(activePage)) {
+      setActivePage('transfers');
+    } else if (user?.role === 'embroidery' && !['transfers', 'embroidery', 'embroidery_clients'].includes(activePage)) {
       setActivePage('transfers');
     }
   }, [user, activePage]);

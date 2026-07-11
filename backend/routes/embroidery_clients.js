@@ -20,7 +20,21 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024
 // GET /api/embroidery-clients - List all embroidery clients
 router.get('/', async (req, res) => {
   try {
-    const rows = await db.query_rows('SELECT * FROM embroidery_clients ORDER BY name');
+    const rows = await db.query_rows(`
+      SELECT 
+        ec.id,
+        ec.name,
+        ec.contact,
+        ec.email,
+        ec.description,
+        ec.image_url,
+        ec.created_at,
+        COALESCE(SUM(el.price_charged)::float, 0) as total_spent
+      FROM embroidery_clients ec
+      LEFT JOIN embroidery_logs el ON ec.id = el.client_id
+      GROUP BY ec.id, ec.name, ec.contact, ec.email, ec.description, ec.image_url, ec.created_at
+      ORDER BY ec.name
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
