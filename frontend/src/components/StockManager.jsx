@@ -1050,6 +1050,7 @@ export default function StockManager({ user }) {
   const [prodSearch, setProdSearch] = useState('');
   const [selectedProdStyle, setSelectedProdStyle] = useState(null);
   const [prodQuantities, setProdQuantities] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchStock = async () => {
     try { setLoading(true); const r = await apiFetch('/api/stock'); setStock(await r.json()); }
@@ -1299,8 +1300,18 @@ export default function StockManager({ user }) {
       ? stock.filter(item => item.source_type === 'manufactured')
       : stock
   ).filter(item => {
-    if (showZeroStock) return true;
-    return (item.quantity || 0) > 0 || (item.workshop_quantity || 0) > 0 || (item.embroidery_quantity || 0) > 0;
+    if (!showZeroStock && !((item.quantity || 0) > 0 || (item.workshop_quantity || 0) > 0 || (item.embroidery_quantity || 0) > 0)) {
+      return false;
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchName = item.name?.toLowerCase().includes(q);
+      const matchCategory = item.category?.toLowerCase().includes(q);
+      const matchSize = String(item.size || '').toLowerCase().includes(q);
+      const matchBarcode = String(item.barcode || '').toLowerCase().includes(q);
+      return matchName || matchCategory || matchSize || matchBarcode;
+    }
+    return true;
   });
 
   const headers = isWorkshop
@@ -1352,6 +1363,18 @@ export default function StockManager({ user }) {
             <span>Show items with zero stock</span>
           </label>
         </div>
+        
+        {/* Search Bar */}
+        <div className="flex-1 max-w-xs min-w-[200px]">
+          <input
+            type="text"
+            placeholder="Search stock by name, category, size..."
+            className="input text-sm w-full py-1.5 px-3"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+        </div>
+
         <div className="flex gap-2 flex-wrap items-center">
           {!isWorkshop && (
             <>
